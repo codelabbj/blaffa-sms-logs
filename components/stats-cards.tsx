@@ -1,9 +1,9 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import type { SmsStats } from "@/lib/api"
-import { CheckCircle2, Clock, MessageSquare, XCircle, TrendingUp, Users } from "lucide-react"
+import { CheckCircle2, Clock, MessageSquare, XCircle } from "lucide-react"
 
 interface StatsCardsProps {
   stats: SmsStats | null
@@ -13,17 +13,15 @@ interface StatsCardsProps {
 export function StatsCards({ stats, isLoading }: StatsCardsProps) {
   if (isLoading) {
     return (
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[...Array(4)].map((_, i) => (
-          <Card key={i} className="border-0 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <Skeleton className="h-4 w-24" />
-              <Skeleton className="h-5 w-5 rounded" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-3 w-20" />
-            </CardContent>
+          <Card key={i} className="p-5">
+            <div className="flex items-center justify-between mb-4">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-8 w-8 rounded" />
+            </div>
+            <Skeleton className="h-7 w-16 mb-2" />
+            <Skeleton className="h-2.5 w-28" />
           </Card>
         ))}
       </div>
@@ -34,68 +32,55 @@ export function StatsCards({ stats, isLoading }: StatsCardsProps) {
 
   const cards = [
     {
-      title: "Messages Totaux",
+      title: "Total messages",
       value: stats.total,
       icon: MessageSquare,
-      color: "blue",
-      description: "Total des messages",
-      bgColor: "bg-teal-50",
-      iconColor: "text-teal-600",
-      borderColor: "border-teal-200"
+      iconClass: "text-blue-600 bg-blue-50",
+      description: "Tous les messages reçus",
     },
     {
       title: "En attente",
       value: stats.by_status.pending,
       icon: Clock,
-      color: "yellow",
-      description: "En attente de traitement",
-      bgColor: "bg-yellow-50",
-      iconColor: "text-yellow-600",
-      borderColor: "border-yellow-200"
+      iconClass: "text-amber-600 bg-amber-50",
+      description: "À traiter",
     },
     {
-      title: "Approuvé",
+      title: "Approuvés",
       value: stats.by_status.approved,
       icon: CheckCircle2,
-      color: "green",
-      description: "Messages approuvés",
-      bgColor: "bg-green-50",
-      iconColor: "text-green-600",
-      borderColor: "border-green-200"
+      iconClass: "text-emerald-600 bg-emerald-50",
+      description: "Confirmés",
     },
     {
-      title: "Pas de commande",
+      title: "Sans commande",
       value: stats.by_status.no_order || 0,
       icon: XCircle,
-      color: "red",
-      description: "Pas de commande associée",
-      bgColor: "bg-red-50",
-      iconColor: "text-red-600",
-      borderColor: "border-red-200"
-    }
+      iconClass: "text-red-600 bg-red-50",
+      description: "Aucune correspondance",
+    },
   ]
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       {cards.map((card, index) => {
         const Icon = card.icon
         return (
-          <Card key={index} className={`border-0 shadow-sm hover:shadow-md transition-shadow duration-200 ${card.bgColor} ${card.borderColor} border`}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
-              <CardTitle className="text-sm font-medium text-gray-600">{card.title}</CardTitle>
-              <div className={`p-2 rounded-lg ${card.bgColor}`}>
-                <Icon className={`h-5 w-5 ${card.iconColor}`} />
+          <Card key={index} className="p-5">
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">
+                  {card.title}
+                </p>
+                <p className="text-2xl font-semibold text-foreground tabular-nums">
+                  {card.value.toLocaleString("fr-FR")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="text-3xl font-bold text-gray-900">{card.value.toLocaleString()}</div>
-                <div className="flex items-center gap-1 text-xs text-gray-500">
-                  <TrendingUp className="h-3 w-3" />
-                  <span>{card.description}</span>
-                </div>
+              <div className={`p-2 rounded-md ${card.iconClass}`}>
+                <Icon className="h-4 w-4" />
               </div>
-            </CardContent>
+            </div>
           </Card>
         )
       })}

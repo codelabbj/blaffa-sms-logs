@@ -8,7 +8,7 @@ import "./globals.css"
 import { Suspense } from "react"
 
 export const metadata: Metadata = {
-  title: "YapsonPress",
+  title: "Blaffa SMS Logs",
   description: "Gérer et surveiller les journaux SMS",
   // generator: "v0.app",
 }

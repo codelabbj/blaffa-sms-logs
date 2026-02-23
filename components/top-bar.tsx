@@ -3,8 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { RefreshCw, Search, Trash2, LogOut, Filter, Bell } from "lucide-react"
+import { RefreshCw, Search, LogOut, Filter, Menu, X } from "lucide-react"
 
 interface TopBarProps {
   searchQuery: string
@@ -14,6 +13,7 @@ interface TopBarProps {
   onRefresh: () => void
   isRefreshing?: boolean
   onLogout?: () => void
+  onMenuClick?: () => void
 }
 
 export function TopBar({
@@ -24,141 +24,196 @@ export function TopBar({
   onRefresh,
   isRefreshing,
   onLogout,
+  onMenuClick,
 }: TopBarProps) {
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
-      case "approved":
-        return "bg-green-100 text-green-800 hover:bg-green-100"
-      case "no_order":
-        return "bg-red-100 text-red-800 hover:bg-red-100"
-      default:
-        return "bg-gray-100 text-gray-800 hover:bg-gray-100"
-    }
-  }
+  const STATUS_OPTIONS = [
+    { value: "all", label: "Tous les statuts", dot: "bg-muted-foreground/40" },
+    { value: "pending", label: "En attente", dot: "bg-amber-400" },
+    { value: "approved", label: "Approuvé", dot: "bg-emerald-500" },
+    { value: "no_order", label: "Sans commande", dot: "bg-red-500" },
+  ]
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "En attente"
-      case "approved":
-        return "Approuvé"
-      case "no_order":
-        return "Pas de commande"
-      default:
-        return "Tous les statuts"
-    }
-  }
+  const activeOption = STATUS_OPTIONS.find((o) => o.value === statusFilter) ?? STATUS_OPTIONS[0]
 
   return (
-    <div className="flex items-center gap-6 border-b border-border bg-blue-600 px-8 py-5 shadow-lg lg:px-12 lg:py-6 xl:px-16 xl:py-7">
-      {/* Logo and Title */}
-      <div className="flex items-center gap-4">
-        <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-lg">YP</span>
+    <header className="sticky top-0 z-50 bg-card border-b border-border">
+      {/*
+        ─────────────────────────────────────────────────────────
+        LAYOUT
+        Mobile  : two rows  (brand/actions | search+filter)
+        Desktop : one row   (brand | search | filter | actions)
+        ─────────────────────────────────────────────────────────
+      */}
+
+      {/* ── Single desktop row ─────────────────────────────── */}
+      <div className="hidden lg:flex items-center gap-3 px-6 h-14">
+
+        {/* Brand */}
+        <div className="flex items-center gap-2.5 flex-shrink-0">
+          <div className="w-7 h-7 brand-gradient rounded-md flex items-center justify-center">
+            <span className="text-white font-bold text-xs tracking-wide select-none">BS</span>
+          </div>
+          <span className="text-sm font-semibold text-foreground whitespace-nowrap">Blaffa SMS Logs</span>
+          <span className="text-xs text-muted-foreground/60 font-normal hidden xl:block">/ Journaux SMS</span>
         </div>
-        <h1 className="text-2xl font-bold text-white">YapsonPress</h1>
-      </div>
 
-      {/* Search Bar */}
-      <div className="relative flex-1 max-w-2xl lg:max-w-3xl xl:max-w-4xl">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-        <Input
-          placeholder="Rechercher des messages..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-12 h-12 bg-white border-gray-200 focus:border-blue-300 focus:ring-blue-200 text-base lg:h-14 lg:text-lg"
-        />
-      </div>
+        {/* Divider */}
+        <div className="h-5 w-px bg-border mx-1 flex-shrink-0" />
 
-      {/* Status Filter */}
-      <div className="flex items-center gap-3">
-        <Filter className="h-6 w-6 text-white/80 lg:h-7 lg:w-7" />
-        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
-          <SelectTrigger className="w-56 h-14 bg-white border-gray-200 focus:border-blue-300 focus:ring-blue-200 lg:w-64 lg:h-16" style={{ minHeight: '3.5rem' }}>
-            <SelectValue placeholder="Tous les statuts" />
-          </SelectTrigger>
-          <SelectContent className="bg-white border border-gray-200 shadow-lg">
-            <SelectItem value="all">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-gray-400"></div>
-                <span>Tous les statuts</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="pending">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-yellow-400"></div>
-                <span>En attente</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="approved">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-400"></div>
-                <span>Approuvé</span>
-              </div>
-            </SelectItem>
-            <SelectItem value="no_order">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-400"></div>
-                <span>Pas de commande</span>
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Search — grows to fill space */}
+        <div className="relative flex-1 min-w-0 max-w-xl">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Rechercher un message ou un expéditeur…"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9 pr-9 h-8 text-sm bg-muted/50 border-border focus-visible:ring-1 focus-visible:ring-primary"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
-        {statusFilter !== "all" && (
-          <Badge className={getStatusBadgeColor(statusFilter)}>
-            {getStatusLabel(statusFilter)}
-          </Badge>
-        )}
-      </div>
+        {/* Divider */}
+        <div className="h-5 w-px bg-border mx-1 flex-shrink-0" />
 
-      {/* Action Buttons */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          onClick={onRefresh}
-          disabled={isRefreshing}
-          className={`h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white transition-all duration-200 lg:h-14 lg:w-14 ${isRefreshing ? "opacity-75 cursor-not-allowed" : ""
-            }`}
-          title={isRefreshing ? "Actualisation en cours..." : "Actualiser"}
-        >
-          <RefreshCw className={`h-5 w-5 transition-transform duration-200 lg:h-6 lg:w-6 ${isRefreshing ? "animate-spin" : ""
-            }`} />
-        </Button>
+        {/* Filter */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Filter className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+            <SelectTrigger className="w-40 h-8 text-sm bg-muted/50 border-border focus:ring-1 focus:ring-primary gap-2">
+              <span className="flex items-center gap-2 min-w-0">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeOption.dot}`} />
+                <span className="truncate">{activeOption.label}</span>
+              </span>
+            </SelectTrigger>
+            <SelectContent className="text-sm">
+              {STATUS_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value}>
+                  <span className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${opt.dot}`} />
+                    {opt.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {statusFilter !== "all" && (
+            <button
+              onClick={() => onStatusFilterChange("all")}
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              title="Effacer le filtre"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
 
-        {/* <Button 
-          variant="outline" 
-          size="icon" 
-          className="h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white lg:h-14 lg:w-14"
-          title="Notifications"
-        >
-          <Bell className="h-4 w-4" />
-        </Button>
+        {/* Divider */}
+        <div className="h-5 w-px bg-border mx-1 flex-shrink-0" />
 
-        <Button 
-          variant="outline" 
-          size="icon" 
-          className="h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white lg:h-14 lg:w-14"
-          title="Supprimer"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button> */}
-
-        {onLogout && (
+        {/* Actions */}
+        <div className="flex items-center gap-1 flex-shrink-0">
           <Button
-            variant="outline"
+            variant="ghost"
             size="icon"
-            onClick={onLogout}
-            className="h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white lg:h-14 lg:w-14"
-            title="Déconnexion"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            title={isRefreshing ? "Actualisation…" : "Actualiser"}
+            className="h-8 w-8 text-muted-foreground hover:text-foreground"
           >
-            <LogOut className="h-4 w-4" />
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+          {onLogout && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onLogout}
+              title="Déconnexion"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* ── Mobile: row 1 — brand + actions ────────────────── */}
+      <div className="lg:hidden flex items-center gap-2 px-4 py-2.5">
+        {onMenuClick && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            className="h-8 w-8 text-muted-foreground -ml-1"
+          >
+            <Menu className="h-4 w-4" />
           </Button>
         )}
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 brand-gradient rounded flex items-center justify-center">
+            <span className="text-white font-bold text-[10px] select-none">BS</span>
+          </div>
+          <span className="text-sm font-semibold text-foreground">Blaffa SMS Logs</span>
+        </div>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="h-8 w-8 text-muted-foreground"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+          </Button>
+          {onLogout && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onLogout}
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
-    </div>
+
+      {/* ── Mobile: row 2 — search + filter ─────────────────── */}
+      <div className="lg:hidden flex items-center gap-2 px-4 pb-3">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            placeholder="Rechercher…"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pl-9 h-8 text-sm bg-muted/50 border-border"
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={onStatusFilterChange}>
+          <SelectTrigger className="w-36 h-8 text-sm bg-muted/50 border-border shrink-0">
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${activeOption.dot}`} />
+              <span className="truncate text-xs">{activeOption.label}</span>
+            </span>
+          </SelectTrigger>
+          <SelectContent className="text-sm">
+            {STATUS_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                <span className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${opt.dot}`} />
+                  {opt.label}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </header>
   )
 }

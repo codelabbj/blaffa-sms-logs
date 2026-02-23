@@ -2,12 +2,11 @@
 
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import type { UniqueSender } from "@/lib/api"
 import type { UniquePackage } from "@/lib/fcm-api"
-import { MessageSquare, Users, Smartphone, Pin, PinOff } from "lucide-react"
+import { Users, Pin, PinOff, Loader2 } from "lucide-react"
 
 interface SenderSidebarProps {
   senders: UniqueSender[]
@@ -22,283 +21,216 @@ interface SenderSidebarProps {
   isPinning?: boolean
 }
 
-export function SenderSidebar({ 
-  senders, 
-  selectedSender, 
-  onSelectSender, 
-  isLoading, 
-  wavePackages = [], 
+export function SenderSidebar({
+  senders,
+  selectedSender,
+  onSelectSender,
+  isLoading,
+  wavePackages = [],
   wavePackagesLoading = false,
   pinnedSenders = new Set(),
   onPinSender,
   onUnpinSender,
-  isPinning = false
+  isPinning = false,
 }: SenderSidebarProps) {
-  // Debug logging
-  console.log("SenderSidebar - wavePackages:", wavePackages)
-  console.log("SenderSidebar - wavePackagesLoading:", wavePackagesLoading)
-  console.log("SenderSidebar - wavePackages.length:", wavePackages?.length)
-
   const getInitials = (sender: string) => {
-    if (sender.startsWith("+")) {
-      return sender.slice(1, 4)
-    }
+    if (sender.startsWith("+")) return sender.slice(1, 4)
     return sender.slice(0, 2).toUpperCase()
-  }
-
-  const getSenderType = (sender: string) => {
-    if (sender.startsWith("+")) return "phone"
-    if (sender.includes("Money") || sender.includes("MoMo") || sender.includes("Orange")) return "service"
-    return "other"
-  }
-
-  const getSenderIcon = (sender: string) => {
-    const type = getSenderType(sender)
-    switch (type) {
-      case "phone":
-        return "📱"
-      case "service":
-        return "🏦"
-      default:
-        return "📧"
-    }
   }
 
   if (isLoading) {
     return (
-      <div className="w-80 border-r border-border bg-background">
-        <div className="border-b border-border bg-blue-600 px-4 py-4">
+      <aside className="w-72 border-r border-border bg-card h-full flex flex-col min-h-0">
+        <div className="px-4 py-3 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-white" />
-            <h2 className="font-semibold text-white">Expéditeurs</h2>
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-semibold text-foreground">Expéditeurs</span>
           </div>
         </div>
-        
-        <ScrollArea className="h-[calc(100vh-80px)]">
-          <div className="p-4 space-y-3">
-            {[...Array(8)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 p-3 rounded-lg">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-                <Skeleton className="h-5 w-8 rounded-full" />
+        <div className="overflow-y-auto flex-1 min-h-0 p-3 space-y-1">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="flex items-center gap-3 px-3 py-2.5">
+              <Skeleton className="h-8 w-8 rounded-full flex-shrink-0" />
+              <div className="flex-1 space-y-1.5">
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-2.5 w-1/2" />
               </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
+            </div>
+          ))}
+        </div>
+      </aside>
     )
   }
 
   return (
-    <div className="w-80 border-r border-border bg-background">
-      <div className="border-b border-border bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-white" />
-            <h2 className="font-semibold text-white">Expéditeurs</h2>
-          </div>
-          <Badge variant="secondary" className="bg-white/20 text-white hover:bg-white/20">
-            {senders.length}
-          </Badge>
+    <aside className="w-72 border-r border-border bg-card h-full flex flex-col min-h-0">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Users className="h-4 w-4 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground">Expéditeurs</span>
         </div>
+        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full font-medium">
+          {senders.length}
+        </span>
       </div>
 
-      <ScrollArea className="h-[calc(100vh-80px)]">
-        <div className="p-4 space-y-2">
-          {/* Wave Packages Section */}
-          {(wavePackages && wavePackages.length > 0) || wavePackagesLoading ? (
-            <>
-              <div className="px-2 py-1">
-                <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  <Smartphone className="h-3 w-3" />
-                  Wave
-                </div>
-              </div>
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="p-2">
+          {/* Wave Packages */}
+          {((wavePackages && wavePackages.length > 0) || wavePackagesLoading) && (
+            <div className="mb-2">
+              <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Services
+              </p>
               {wavePackagesLoading ? (
-                <div className="flex items-center justify-center p-4">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                  <span className="ml-2 text-sm text-gray-500">Chargement des packages Wave...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
-              ) : wavePackages && wavePackages.length > 0 ? (
+              ) : (
                 wavePackages.map((pkg) => (
                   <button
                     key={`wave-${pkg.package_name}`}
                     onClick={() => onSelectSender("com.wave.business", true)}
                     className={cn(
-                      "flex w-full items-center gap-3 p-4 text-left transition-all duration-200 border-b border-gray-100 last:border-b-0",
-                      selectedSender === "com.wave.business" && "bg-blue-600 text-white"
+                      "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors text-sm",
+                      selectedSender === "com.wave.business"
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-muted text-foreground"
                     )}
                   >
-                    <div className="relative">
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className={cn(
-                          "text-sm font-semibold bg-green-200 text-green-700",
-                          selectedSender === "com.wave.business" && "bg-white text-blue-600"
-                        )}>
-                          W
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center text-xs">
-                        📱
-                      </div>
-                    </div>
-
-                    <div className="flex-1 overflow-hidden">
-                      <div className="flex items-center justify-between">
-                        <p className={cn(
-                          "truncate font-medium text-sm",
-                          selectedSender === "com.wave.business" ? "text-white" : "text-gray-900"
-                        )}>
-                          {pkg.package_name}
-                        </p>
-                        {pkg.unread_count > 0 && (
-                          <Badge
-                            className={cn(
-                              "h-5 min-w-5 rounded-full px-1 text-xs font-semibold bg-red-500 text-white",
-                              selectedSender === "com.wave.business" && "bg-red-400"
-                            )}
-                          >
-                            {pkg.unread_count}
-                          </Badge>
-                        )}
-                      </div>
+                    <Avatar className="h-7 w-7 flex-shrink-0">
+                      <AvatarFallback className={cn(
+                        "text-xs font-semibold",
+                        selectedSender === "com.wave.business"
+                          ? "bg-white/20 text-primary-foreground"
+                          : "bg-emerald-100 text-emerald-700"
+                      )}>
+                        W
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{pkg.package_name}</p>
                       <p className={cn(
-                        "text-xs mt-1",
-                        selectedSender === "com.wave.business" ? "text-white/70" : "text-gray-500"
+                        "text-xs",
+                        selectedSender === "com.wave.business" ? "text-primary-foreground/70" : "text-muted-foreground"
                       )}>
                         {pkg.count} message{pkg.count !== 1 ? "s" : ""}
                       </p>
                     </div>
+                    {pkg.unread_count > 0 && (
+                      <Badge className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 font-semibold",
+                        selectedSender === "com.wave.business" ? "bg-white text-primary" : "bg-primary text-primary-foreground"
+                      )}>
+                        {pkg.unread_count}
+                      </Badge>
+                    )}
                   </button>
                 ))
-              ) : null}
-            </>
-          ) : null}
-
-          {/* SMS Section */}
-          <div className="px-2 py-1">
-            <div className="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              <MessageSquare className="h-3 w-3" />
-              SMS
+              )}
             </div>
-          </div>
+          )}
 
-          {/* SMS Senders - Sort pinned senders first */}
-          {senders
-            .sort((a, b) => {
-              const aPinned = pinnedSenders.has(a.sender)
-              const bPinned = pinnedSenders.has(b.sender)
-              if (aPinned && !bPinned) return -1
-              if (!aPinned && bPinned) return 1
-              return 0
-            })
-            .map((sender) => {
-            const isPinned = pinnedSenders.has(sender.sender)
-            return (
-              <div
-                key={sender.sender}
-                className={cn(
-                  "flex items-center gap-3 p-4 transition-all duration-200 border-b border-gray-100 last:border-b-0",
-                  selectedSender === sender.sender && "bg-blue-600 text-white"
-                )}
-              >
-                <button
-                  onClick={() => onSelectSender(sender.sender, false)}
-                  className="flex-1 flex items-center gap-3 text-left"
-                >
-                  <div className="relative">
-                    <Avatar className="h-12 w-12">
-                      <AvatarFallback className={cn(
-                        "text-sm font-semibold bg-gray-200 text-gray-700",
-                        selectedSender === sender.sender && "bg-white text-blue-600"
-                      )}>
-                        {getInitials(sender.sender)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center text-xs">
-                      {getSenderIcon(sender.sender)}
-                    </div>
-                    {isPinned && (
-                      <div className="absolute -top-1 -left-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                        <Pin className="h-2 w-2 text-white" />
+          {/* SMS Senders */}
+          <div>
+            <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              SMS
+            </p>
+            {senders
+              .sort((a, b) => {
+                const aPinned = pinnedSenders.has(a.sender)
+                const bPinned = pinnedSenders.has(b.sender)
+                if (aPinned && !bPinned) return -1
+                if (!aPinned && bPinned) return 1
+                return 0
+              })
+              .map((sender) => {
+                const isPinned = pinnedSenders.has(sender.sender)
+                const isSelected = selectedSender === sender.sender
+                return (
+                  <div key={sender.sender} className={cn(
+                    "group relative flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
+                    isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
+                  )}>
+                    <button
+                      onClick={() => onSelectSender(sender.sender, false)}
+                      className="flex-1 flex items-center gap-3 text-left min-w-0"
+                    >
+                      <div className="relative flex-shrink-0">
+                        <Avatar className="h-7 w-7">
+                          <AvatarFallback className={cn(
+                            "text-xs font-semibold",
+                            isSelected
+                              ? "bg-white/20 text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground"
+                          )}>
+                            {getInitials(sender.sender)}
+                          </AvatarFallback>
+                        </Avatar>
+                        {isPinned && (
+                          <span className="absolute -top-1 -right-1 w-3 h-3 bg-amber-400 rounded-full border border-background" />
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 overflow-hidden">
-                    <div className="flex items-center justify-between">
-                      <p className={cn(
-                        "truncate font-medium text-sm",
-                        selectedSender === sender.sender ? "text-white" : "text-gray-900"
-                      )}>
-                        {sender.sender}
-                      </p>
+                      <div className="flex-1 min-w-0">
+                        <p className={cn(
+                          "text-sm font-medium truncate",
+                          isSelected ? "text-primary-foreground" : "text-foreground"
+                        )}>
+                          {sender.sender}
+                        </p>
+                        <p className={cn(
+                          "text-xs",
+                          isSelected ? "text-primary-foreground/70" : "text-muted-foreground"
+                        )}>
+                          {sender.count} message{sender.count !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                       {sender.unread_count > 0 && (
-                        <Badge
-                          className={cn(
-                            "h-5 min-w-5 rounded-full px-1 text-xs font-semibold bg-red-500 text-white",
-                            selectedSender === sender.sender && "bg-red-400"
-                          )}
-                        >
+                        <Badge className={cn(
+                          "text-[10px] px-1.5 py-0 h-4 font-semibold",
+                          isSelected ? "bg-white text-primary" : "bg-primary text-primary-foreground"
+                        )}>
                           {sender.unread_count}
                         </Badge>
                       )}
-                    </div>
-                    <p className={cn(
-                      "text-xs mt-1",
-                      selectedSender === sender.sender ? "text-white/70" : "text-gray-500"
-                    )}>
-                      {sender.count} message{sender.count !== 1 ? "s" : ""}
-                    </p>
+                    </button>
+
+                    {onPinSender && onUnpinSender && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (isPinned) onUnpinSender(sender.sender)
+                          else onPinSender(sender.sender)
+                        }}
+                        disabled={isPinning}
+                        title={isPinned ? "Désépingler" : "Épingler"}
+                        className={cn(
+                          "h-6 w-6 flex-shrink-0 flex items-center justify-center rounded transition-opacity",
+                          "opacity-0 group-hover:opacity-100 focus:opacity-100",
+                          isPinned ? "opacity-100 text-amber-500" : isSelected ? "text-primary-foreground/60 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                        )}
+                      >
+                        {isPinned
+                          ? <PinOff className="h-3 w-3" />
+                          : <Pin className="h-3 w-3" />
+                        }
+                      </button>
+                    )}
                   </div>
-                </button>
+                )
+              })}
+          </div>
 
-                {/* Pin/Unpin Button */}
-                {onPinSender && onUnpinSender && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (isPinned) {
-                        onUnpinSender(sender.sender)
-                      } else {
-                        onPinSender(sender.sender)
-                      }
-                    }}
-                    disabled={isPinning}
-                    className={cn(
-                      "p-2 rounded-full transition-colors",
-                      isPinned 
-                        ? "text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50" 
-                        : "text-gray-400 hover:text-gray-600 hover:bg-gray-100",
-                      selectedSender === sender.sender && "hover:bg-white/20"
-                    )}
-                    title={isPinned ? "Désépingler" : "Épingler"}
-                  >
-                    {isPinned ? (
-                      <PinOff className="h-4 w-4" />
-                    ) : (
-                      <Pin className="h-4 w-4" />
-                    )}
-                  </button>
-                )}
-              </div>
-            )
-          })}
-
-          {senders.length === 0 && (
-            <div className="py-12 text-center">
-              <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                <Users className="h-8 w-8 text-gray-400" />
-              </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Aucun expéditeur</h3>
-              <p className="text-sm text-gray-600">Aucun expéditeur trouvé</p>
+          {senders.length === 0 && !wavePackagesLoading && (
+            <div className="py-12 text-center px-4">
+              <Users className="h-8 w-8 text-muted-foreground/40 mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">Aucun expéditeur</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Les messages apparaîtront ici dès réception.</p>
             </div>
           )}
         </div>
-      </ScrollArea>
-    </div>
+      </div>
+    </aside>
   )
 }
