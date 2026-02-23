@@ -24,14 +24,14 @@
   --input: 214 14% 89%;
 
   /* Restrained accent — corporate steel blue */
-  --primary: 221 83% 53%;
+  --primary: 168 72% 36%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 210 16% 93%;
   --secondary-foreground: 215 25% 12%;
 
-  --accent: 210 40% 96%;
-  --accent-foreground: 215 25% 12%;
+  --accent: 168 30% 94%;
+  --accent-foreground: 168 50% 20%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
@@ -42,7 +42,7 @@
   --warning: 38 88% 48%;
   --warning-foreground: 0 0% 100%;
 
-  --ring: 221 83% 53%;
+  --ring: 168 72% 36%;
   --radius: 0.5rem;
 }
 
@@ -63,19 +63,19 @@
   --border: 220 14% 18%;
   --input: 220 14% 18%;
 
-  --primary: 217 91% 60%;
-  --primary-foreground: 222 18% 9%;
+  --primary: 168 60% 48%;
+  --primary-foreground: 168 50% 8%;
 
   --secondary: 220 15% 14%;
   --secondary-foreground: 210 20% 88%;
 
-  --accent: 220 15% 17%;
-  --accent-foreground: 210 20% 88%;
+  --accent: 168 20% 15%;
+  --accent-foreground: 168 20% 90%;
 
   --destructive: 0 62% 55%;
   --destructive-foreground: 0 0% 100%;
 
-  --ring: 217 91% 60%;
+  --ring: 168 60% 48%;
 }
 
 @theme inline {
@@ -146,7 +146,7 @@
 
   /* Primary gradient — only for brand marks, never backgrounds */
   .brand-gradient {
-    @apply bg-gradient-to-br from-blue-600 to-blue-700;
+    @apply bg-gradient-to-br from-teal-600 to-emerald-700;
   }
 
   /* Sidebar item — selected state */
@@ -178,7 +178,7 @@
   }
 
   .premium-gradient-bg {
-    @apply brand-gradient;
+    @apply bg-gradient-to-br from-teal-600 to-emerald-700;
   }
 
   .text-gradient {
