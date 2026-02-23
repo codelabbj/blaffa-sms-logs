@@ -1,4 +1,5 @@
 import { authenticatedFetch } from "./api"
+import { parseDRFError } from "./auth"
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || ""
 
@@ -78,21 +79,8 @@ export async function fetchFcmLogs(params: {
   console.log("📡 fetchFcmLogs response status:", response.status)
 
   if (!response.ok) {
-    let errorMessage = "Failed to fetch FCM logs"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      errorMessage = errorData.message || 
-                    errorData.error || 
-                    errorData.detail || 
-                    errorData.non_field_errors?.[0] ||
-                    `HTTP ${response.status}: ${response.statusText}` ||
-                    errorMessage
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   return response.json()
@@ -104,25 +92,12 @@ export async function fetchUniquePackages(): Promise<UniquePackage[]> {
   console.log("📡 fetchUniquePackages response status:", response.status)
 
   if (!response.ok) {
-    let errorMessage = "Failed to fetch unique packages"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      errorMessage = errorData.message || 
-                    errorData.error || 
-                    errorData.detail || 
-                    errorData.non_field_errors?.[0] ||
-                    `HTTP ${response.status}: ${response.statusText}` ||
-                    errorMessage
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   const data: UniquePackagesResponse = await response.json()
-  
+
   // Transform the API response to match our component expectations
   // Only show com.wave.business if count is not 0
   return data.stats
@@ -148,30 +123,8 @@ export async function updateFcmStatus(fcmLogUid: string, status: "approved" | "n
   )
 
   if (!response.ok) {
-    let errorMessage = "Failed to update FCM status"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      
-      // Handle Django validation errors format: {"field": ["error message"]}
-      if (errorData.status && Array.isArray(errorData.status)) {
-        errorMessage = errorData.status[0] // Get first error message
-      } else if (errorData.message) {
-        errorMessage = errorData.message
-      } else if (errorData.error) {
-        errorMessage = errorData.error
-      } else if (errorData.detail) {
-        errorMessage = errorData.detail
-      } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
-        errorMessage = errorData.non_field_errors[0]
-      } else {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`
-      }
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   return response.json()

@@ -113,8 +113,8 @@ export async function login(payload: LoginPayload): Promise<LoginResponse> {
   })
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Login failed" }))
-    throw new Error(error.detail || "Login failed")
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   const data: LoginResponse = await response.json()
@@ -165,4 +165,44 @@ export function logout() {
   if (typeof window !== "undefined") {
     window.location.href = "/login"
   }
+}
+
+/**
+ * Parses Django REST Framework error responses into a human-readable string.
+ * Handles field errors, non-field errors, and general detail messages.
+ */
+export function parseDRFError(errorData: any): string {
+  if (!errorData) return "Une erreur est survenue."
+
+  // If it's a simple string detail
+  if (typeof errorData.detail === "string") return errorData.detail
+
+  // If it's a message/error key
+  if (typeof errorData.message === "string") return errorData.message
+  if (typeof errorData.error === "string") return errorData.error
+
+  // If it's an object (field errors or non-field errors)
+  if (typeof errorData === "object" && !Array.isArray(errorData)) {
+    const messages: string[] = []
+
+    for (const key in errorData) {
+      const value = errorData[key]
+
+      // key might be "non_field_errors" or "password", etc.
+      const prefix = key === "non_field_errors" || key === "detail" ? "" : `${key}: `
+
+      if (Array.isArray(value)) {
+        messages.push(`${prefix}${value.join(" ")}`)
+      } else if (typeof value === "string") {
+        messages.push(`${prefix}${value}`)
+      } else if (typeof value === "object" && value !== null) {
+        messages.push(`${prefix}${JSON.stringify(value)}`)
+      }
+    }
+
+    if (messages.length > 0) return messages.join(" ")
+  }
+
+  // Fallback
+  return JSON.stringify(errorData)
 }

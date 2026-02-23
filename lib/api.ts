@@ -1,4 +1,4 @@
-import { getAccessToken, refreshAccessToken, logout } from "./auth"
+import { getAccessToken, refreshAccessToken, logout, parseDRFError } from "./auth"
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || ""
 
@@ -189,21 +189,8 @@ export async function fetchSmsLogs(params: {
   const response = await authenticatedFetch(`${BASE_URL}/api/payments/betting/user/sms-logs/?${queryParams.toString()}`)
 
   if (!response.ok) {
-    let errorMessage = "Failed to fetch SMS logs"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      errorMessage = errorData.message || 
-                    errorData.error || 
-                    errorData.detail || 
-                    errorData.non_field_errors?.[0] ||
-                    `HTTP ${response.status}: ${response.statusText}` ||
-                    errorMessage
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   return response.json()
@@ -213,21 +200,8 @@ export async function fetchSmsStats(): Promise<SmsStats> {
   const response = await authenticatedFetch(`${BASE_URL}/api/payments/betting/user/sms-logs/stats/`)
 
   if (!response.ok) {
-    let errorMessage = "Failed to fetch SMS stats"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      errorMessage = errorData.message || 
-                    errorData.error || 
-                    errorData.detail || 
-                    errorData.non_field_errors?.[0] ||
-                    `HTTP ${response.status}: ${response.statusText}` ||
-                    errorMessage
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   return response.json()
@@ -237,25 +211,12 @@ export async function fetchUniqueSenders(): Promise<UniqueSender[]> {
   const response = await authenticatedFetch(`${BASE_URL}/api/payments/betting/user/sms-logs/unique_senders/`)
 
   if (!response.ok) {
-    let errorMessage = "Failed to fetch unique senders"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      errorMessage = errorData.message || 
-                    errorData.error || 
-                    errorData.detail || 
-                    errorData.non_field_errors?.[0] ||
-                    `HTTP ${response.status}: ${response.statusText}` ||
-                    errorMessage
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   const data: UniqueSendersResponse = await response.json()
-  
+
   // Transform the API response to match our component expectations
   return data.stats.map(stat => ({
     sender: stat.sender,
@@ -278,31 +239,8 @@ export async function updateSmsStatus(smsLogUid: string, status: "approved" | "n
   )
 
   if (!response.ok) {
-    let errorMessage = "Failed to update SMS status"
-    try {
-      const errorData = await response.json()
-      console.log("Backend error response:", errorData)
-      console.log("Response status:", response.status)
-      
-      // Handle Django validation errors format: {"field": ["error message"]}
-      if (errorData.status && Array.isArray(errorData.status)) {
-        errorMessage = errorData.status[0] // Get first error message
-      } else if (errorData.message) {
-        errorMessage = errorData.message
-      } else if (errorData.error) {
-        errorMessage = errorData.error
-      } else if (errorData.detail) {
-        errorMessage = errorData.detail
-      } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
-        errorMessage = errorData.non_field_errors[0]
-      } else {
-        errorMessage = `HTTP ${response.status}: ${response.statusText}`
-      }
-    } catch (parseError) {
-      console.log("Could not parse error response:", parseError)
-      errorMessage = `HTTP ${response.status}: ${response.statusText}`
-    }
-    throw new Error(errorMessage)
+    const errorData = await response.json().catch(() => null)
+    throw new Error(parseDRFError(errorData))
   }
 
   return response.json()
