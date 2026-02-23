@@ -106,7 +106,7 @@ export function TopBar({
             </SelectItem>
           </SelectContent>
         </Select>
-        
+
         {statusFilter !== "all" && (
           <Badge className={getStatusBadgeColor(statusFilter)}>
             {getStatusLabel(statusFilter)}
@@ -116,19 +116,17 @@ export function TopBar({
 
       {/* Action Buttons */}
       <div className="flex items-center gap-3">
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={onRefresh} 
-          disabled={isRefreshing} 
-          className={`h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white transition-all duration-200 lg:h-14 lg:w-14 ${
-            isRefreshing ? "opacity-75 cursor-not-allowed" : ""
-          }`}
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className={`h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white transition-all duration-200 lg:h-14 lg:w-14 ${isRefreshing ? "opacity-75 cursor-not-allowed" : ""
+            }`}
           title={isRefreshing ? "Actualisation en cours..." : "Actualiser"}
         >
-          <RefreshCw className={`h-5 w-5 transition-transform duration-200 lg:h-6 lg:w-6 ${
-            isRefreshing ? "animate-spin" : ""
-          }`} />
+          <RefreshCw className={`h-5 w-5 transition-transform duration-200 lg:h-6 lg:w-6 ${isRefreshing ? "animate-spin" : ""
+            }`} />
         </Button>
 
         {/* <Button 
@@ -150,11 +148,11 @@ export function TopBar({
         </Button> */}
 
         {onLogout && (
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={onLogout} 
-            className="h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white lg:h-14 lg:w-14" 
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={onLogout}
+            className="h-12 w-12 bg-white/10 hover:bg-white/20 border-white/20 text-white lg:h-14 lg:w-14"
             title="Déconnexion"
           >
             <LogOut className="h-4 w-4" />

@@ -10,7 +10,7 @@ import { Suspense } from "react"
 export const metadata: Metadata = {
   title: "YapsonPress",
   description: "Gérer et surveiller les journaux SMS",
- // generator: "v0.app",
+  // generator: "v0.app",
 }
 
 export default function RootLayout({
