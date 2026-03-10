@@ -64,7 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await authLogin(payload)
       setUser(response.user)
-      router.push("/")
     } catch (error) {
       throw error
     }

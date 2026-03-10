@@ -2,15 +2,19 @@
 
 import type React from "react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, Eye, EyeOff } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function LoginPage() {
   const { login } = useAuth()
+  const router = useRouter()
+  const { toast } = useToast()
   const [identifier, setIdentifier] = useState("")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
@@ -23,6 +27,12 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await login({ identifier, password })
+      toast({
+        variant: "success",
+        title: "Connexion réussie",
+        description: "Vous êtes maintenant connecté.",
+      })
+      router.push("/")
     } catch (err) {
       setError(err instanceof Error ? err.message : "La connexion a échoué. Veuillez réessayer.")
     } finally {

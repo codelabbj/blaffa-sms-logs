@@ -4,7 +4,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { StatusModal } from "@/components/status-modal"
 import { cn } from "@/lib/utils"
 import type { SmsLog } from "@/lib/api"
 import type { FcmLog } from "@/lib/fcm-api"
@@ -20,9 +19,12 @@ import {
   ChevronDown,
   ChevronUp,
   MessageSquare,
-  Settings2,
+  Copy,
+  Check,
+  Ban,
 } from "lucide-react"
 import { useEffect, useRef, useCallback, useState } from "react"
+import { useToast } from "@/hooks/use-toast"
 
 interface MessageThreadProps {
   messages: (SmsLog | FcmLog)[]
@@ -57,8 +59,8 @@ export function MessageThread({
   restoreScrollTop = 0,
   onScrollPositionChange,
 }: MessageThreadProps) {
-  const [selectedMessage, setSelectedMessage] = useState<SmsLog | FcmLog | null>(null)
-  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [copiedUid, setCopiedUid] = useState<string | null>(null)
+  const { toast } = useToast()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const lastMessageCountRef = useRef<number>(0)
   const isLoadingInternalRef = useRef<boolean>(false)
@@ -142,6 +144,7 @@ export function MessageThread({
 
   const isFcmLog = (message: any): message is FcmLog => "package_name" in message
   const getMessageAmount = (message: any) => message.amount || message.extracted_data?.amount || null
+  const getMessagePhone = (message: any) => (message as any).phone || (message as any).extracted_data?.phone || null
   const getMessageDate = (message: any) => (isFcmLog(message) ? message.created_at : message.received_at)
   const getMessageContent = (message: any) => (isFcmLog(message) ? message.body : message.content)
   const formatTimestamp = (ts: string) => {
@@ -154,6 +157,16 @@ export function MessageThread({
   const shouldShowExpand = (message: SmsLog | FcmLog) => {
     const content = getMessageContent(message)
     return content && content.length > 300
+  }
+
+  const copyToClipboard = (text: string, uid: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedUid(uid)
+    toast({
+      variant: "success",
+      description: "Numéro copié dans le presse-papier",
+    })
+    setTimeout(() => setCopiedUid(null), 2000)
   }
 
   const statusConfig: Record<string, { label: string; icon: React.ReactNode; badgeClass: string; rowClass: string }> = {
@@ -255,6 +268,19 @@ export function MessageThread({
                   </div>
 
                   <div className="flex items-center gap-3">
+                    {getMessagePhone(message) && (
+                      <button
+                        onClick={() => copyToClipboard(getMessagePhone(message), message.uid)}
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/5 border border-primary/20 px-2 py-0.5 rounded hover:bg-primary/10 transition-colors"
+                      >
+                        {copiedUid === message.uid ? (
+                          <Check className="h-3 w-3" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                        {getMessagePhone(message)}
+                      </button>
+                    )}
                     {amount && (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
                         <DollarSign className="h-3 w-3" />
@@ -290,16 +316,33 @@ export function MessageThread({
                   )}
                 </div>
 
-                {/* Card footer */}
-                <div className="px-4 py-2.5 border-t border-border/60 flex justify-end">
+                {/* Card footer - Direct actions */}
+                <div className="px-4 py-2.5 border-t border-border/60 flex justify-end gap-2">
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { setSelectedMessage(message); setIsModalOpen(true) }}
-                    className="h-7 text-xs gap-1.5"
+                    onClick={() => onUpdateStatus(message.uid, "no_order")}
+                    disabled={isUpdating || message.status === "no_order"}
+                    className={cn(
+                      "h-8 text-xs gap-1.5 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800",
+                      message.status === "no_order" && "opacity-50 cursor-not-allowed"
+                    )}
                   >
-                    <Settings2 className="h-3 w-3" />
-                    Mettre à jour le statut
+                    <Ban className="h-3.5 w-3.5" />
+                    Rejeter
+                  </Button>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => onUpdateStatus(message.uid, "approved")}
+                    disabled={isUpdating || message.status === "approved"}
+                    className={cn(
+                      "h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white",
+                      message.status === "approved" && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    Approuver
                   </Button>
                 </div>
               </div>
@@ -321,15 +364,6 @@ export function MessageThread({
         </div>
       </div>
 
-      {selectedMessage && (
-        <StatusModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          message={selectedMessage}
-          onStatusChange={onUpdateStatus}
-          isUpdating={isUpdating}
-        />
-      )}
     </div>
   )
 }

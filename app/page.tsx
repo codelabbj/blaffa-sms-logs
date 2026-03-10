@@ -36,8 +36,11 @@ import useSWR from "swr"
 import { useMessagesV2 } from "@/hooks/use-messages-v2"
 import { useConversationStore } from "@/hooks/use-conversation-store"
 
+import { useToast } from "@/hooks/use-toast"
+
 export default function DashboardPage() {
   const { logout } = useAuth()
+  const { toast } = useToast()
   const [selectedSender, setSelectedSender] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
@@ -202,7 +205,11 @@ export default function DashboardPage() {
       mutateStats()
 
       // Show success feedback
-      console.log(`Message ${uid} status updated to ${status}`)
+      toast({
+        variant: "success",
+        title: status === "approved" ? "Message approuvé" : "Message rejeté",
+        description: `Le statut du message a été mis à jour avec succès.`,
+      })
     } catch (error) {
       console.error("Échec de la mise à jour du statut:", error)
 
@@ -225,6 +232,11 @@ export default function DashboardPage() {
         }
       }
 
+      toast({
+        variant: "destructive",
+        title: "Erreur",
+        description: errorMessage,
+      })
       setError(errorMessage)
     } finally {
       setIsUpdating(false)

@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   // generator: "v0.app",
 }
 
+import { Toaster } from "@/components/ui/toaster"
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -24,6 +26,7 @@ export default function RootLayout({
         <Suspense fallback={<div>Chargement...</div>}>
           <AuthProvider>{children}</AuthProvider>
         </Suspense>
+        <Toaster />
         <Analytics />
       </body>
     </html>
