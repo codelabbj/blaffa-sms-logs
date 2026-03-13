@@ -59,7 +59,7 @@ export interface SmsLog {
   is_processed: boolean
   extracted_data: ExtractedData | null
   ai_confidence_score?: number
-  status: "pending" | "approved" | "no_order"
+  status: "pending" | "approved" | "no_order" | "refunded"
   status_display: string
   status_changed_at?: string
   status_changed_by?: number
@@ -76,7 +76,7 @@ export interface SmsLogsResponse {
 }
 
 export interface StatusDetail {
-  status: "pending" | "approved" | "no_order"
+  status: "pending" | "approved" | "no_order" | "refunded"
   count: number
 }
 
@@ -86,6 +86,7 @@ export interface SmsStats {
     pending: number
     approved: number
     no_order?: number
+    refunded?: number
   }
   details: StatusDetail[]
 }
@@ -115,7 +116,7 @@ export interface FcmLog {
   is_processed: boolean
   package_name: string
   external_id: string
-  status: "pending" | "approved" | "no_order"
+  status: "pending" | "approved" | "no_order" | "refunded"
   status_display: string
   status_changed_at?: string
   status_changed_by?: number
@@ -226,7 +227,7 @@ export async function fetchUniqueSenders(): Promise<UniqueSender[]> {
   }))
 }
 
-export async function updateSmsStatus(smsLogUid: string, status: "approved" | "no_order"): Promise<SmsLog> {
+export async function updateSmsStatus(smsLogUid: string, status: "approved" | "no_order" | "refunded"): Promise<SmsLog> {
   const response = await authenticatedFetch(
     `${BASE_URL}/api/payments/betting/user/sms-logs/${smsLogUid}/update_status/`,
     {

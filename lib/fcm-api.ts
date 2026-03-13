@@ -15,7 +15,7 @@ export interface FcmLog {
   is_processed: boolean
   package_name: string
   external_id: string
-  status: "pending" | "approved" | "no_order"
+  status: "pending" | "approved" | "no_order" | "refunded"
   status_display: string
   status_changed_at?: string
   status_changed_by?: number
@@ -110,7 +110,7 @@ export async function fetchUniquePackages(): Promise<UniquePackage[]> {
     }))
 }
 
-export async function updateFcmStatus(fcmLogUid: string, status: "approved" | "no_order"): Promise<FcmLog> {
+export async function updateFcmStatus(fcmLogUid: string, status: "approved" | "no_order" | "refunded"): Promise<FcmLog> {
   const response = await authenticatedFetch(
     `${BASE_URL}/api/payments/betting/user/fcm-logs/${fcmLogUid}/update_status/`,
     {

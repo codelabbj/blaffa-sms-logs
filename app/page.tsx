@@ -180,7 +180,7 @@ export default function DashboardPage() {
     },
   )
 
-  const handleUpdateStatus = async (uid: string, status: "approved" | "no_order") => {
+  const handleUpdateStatus = async (uid: string, status: "approved" | "no_order" | "refunded") => {
     setIsUpdating(true)
     setError(null)
     try {
@@ -196,7 +196,7 @@ export default function DashboardPage() {
       if (message) {
         updateMessage(uid, {
           status: status,
-          status_display: status === "approved" ? "Approuvé" : "Pas de commande"
+          status_display: status === "approved" ? "Approuvé" : status === "refunded" ? "Remboursé" : "Pas de commande"
         })
       }
 
@@ -207,7 +207,7 @@ export default function DashboardPage() {
       // Show success feedback
       toast({
         variant: "success",
-        title: status === "approved" ? "Message approuvé" : "Message rejeté",
+        title: status === "approved" ? "Message approuvé" : status === "refunded" ? "Message remboursé" : "Message rejeté",
         description: `Le statut du message a été mis à jour avec succès.`,
       })
     } catch (error) {
