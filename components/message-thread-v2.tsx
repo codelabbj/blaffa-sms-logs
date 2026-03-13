@@ -22,6 +22,7 @@ import {
   Copy,
   Check,
   Ban,
+  Undo,
 } from "lucide-react"
 import { useEffect, useRef, useCallback, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
@@ -29,7 +30,7 @@ import { useToast } from "@/hooks/use-toast"
 interface MessageThreadProps {
   messages: (SmsLog | FcmLog)[]
   sender: string | null
-  onUpdateStatus: (uid: string, status: "approved" | "no_order") => void
+  onUpdateStatus: (uid: string, status: "approved" | "no_order" | "refunded") => void
   isLoading?: boolean
   isUpdating?: boolean
   hasNextPage?: boolean
@@ -188,6 +189,12 @@ export function MessageThread({
       badgeClass: "bg-amber-50 text-amber-700 border-amber-200",
       rowClass: "border-l-amber-400",
     },
+    refunded: {
+      label: "Remboursé",
+      icon: <Undo className="h-3.5 w-3.5" />,
+      badgeClass: "bg-blue-50 text-blue-700 border-blue-200",
+      rowClass: "border-l-blue-400",
+    },
   }
 
   if (!sender)
@@ -314,6 +321,19 @@ export function MessageThread({
                   >
                     <Ban className="h-3 w-3" />
                     Rejeter
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onUpdateStatus(message.uid, "refunded")}
+                    disabled={isUpdating || message.status === "refunded"}
+                    className={cn(
+                      "h-8 text-xs gap-1.5 border-blue-200 text-blue-700 hover:bg-blue-50 hover:text-blue-800",
+                      message.status === "refunded" && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    <Undo className="h-3.5 w-3.5" />
+                    Rembourser
                   </Button>
                   <Button
                     variant="default"

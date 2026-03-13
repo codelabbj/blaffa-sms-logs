@@ -18,6 +18,9 @@ import useSWR from "swr"
 import { useMessagesV2 } from "@/hooks/use-messages-v2"
 import { useConversationStore } from "@/hooks/use-conversation-store"
 import { useToast } from "@/hooks/use-toast"
+import { useNotificationSound } from "@/hooks/use-notification-sound"
+import { useNotifications } from "@/contexts/notification-context"
+import { useConversationTimestamps } from "@/hooks/use-conversation-timestamps"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
@@ -27,9 +30,29 @@ function MessagesPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  const { refreshNotifications } = useNotifications()
+  const { updateTimestamp } = useConversationTimestamps()
   
   const sender = searchParams.get("id")
   const isWaveMode = searchParams.get("wave") === "true"
+  
+  // Hook pour le son de notification (local à la conversation)
+  const { playSound } = useNotificationSound({
+    enabled: true,
+    volume: 0.7,
+  })
+  
+  // Fonction pour obtenir le nom d'affichage du package
+  const getPackageDisplayName = (packageName: string | null) => {
+    if (!packageName) return "Service"
+    const displayNames: Record<string, string> = {
+      "com.wave.business": "Wave Business",
+      "com.whatsapp": "WhatsApp",
+      "com.telegram": "Telegram",
+      "com.facebook.orca": "Messenger",
+    }
+    return displayNames[packageName] || packageName
+  }
   
   const [statusFilter, setStatusFilter] = useState("all")
   const [isUpdating, setIsUpdating] = useState(false)
@@ -54,6 +77,16 @@ function MessagesPageContent() {
   } = useMessagesV2({
     onNewMessages: (newMessages) => {
       console.log(`✨ ${newMessages.length} nouveau(x) message(s) détecté(s)`)
+      // Jouer le son de notification
+      if (newMessages.length > 0) {
+        playSound()
+        
+        // Mettre à jour le timestamp de cette conversation
+        if (sender) {
+          updateTimestamp(sender, isWaveMode)
+          console.log(`📅 Timestamp mis à jour pour ${sender}`)
+        }
+      }
     },
   })
 
@@ -108,7 +141,7 @@ function MessagesPageContent() {
     },
   )
 
-  const handleUpdateStatus = async (uid: string, status: "approved" | "no_order") => {
+  const handleUpdateStatus = async (uid: string, status: "approved" | "no_order" | "refunded") => {
     setIsUpdating(true)
     setError(null)
     try {
@@ -133,6 +166,9 @@ function MessagesPageContent() {
         title: status === "approved" ? "Message approuvé" : "Message rejeté",
         description: `Le statut du message a été mis à jour avec succès.`,
       })
+      
+      // Rafraîchir les notifications globales
+      refreshNotifications()
     } catch (error) {
       console.error("Échec de la mise à jour du statut:", error)
 
@@ -278,7 +314,7 @@ function MessagesPageContent() {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <h1 className="text-[15px] font-semibold text-white truncate">
-                  {isWaveMode ? "Wave Business" : sender}
+                  {isWaveMode ? getPackageDisplayName(sender) : sender}
                 </h1>
                 <p className="text-[11px] text-white/80">
                   {allMessages.length} message{allMessages.length !== 1 ? "s" : ""}

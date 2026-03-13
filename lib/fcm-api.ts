@@ -15,7 +15,7 @@ export interface FcmLog {
   is_processed: boolean
   package_name: string
   external_id: string
-  status: "pending" | "approved" | "no_order"
+  status: "pending" | "approved" | "no_order" | "refunded"
   status_display: string
   status_changed_at?: string
   status_changed_by?: number
@@ -51,6 +51,7 @@ export interface UniquePackage {
   count: number
   pending_count: number
   unread_count: number
+  last_message_date?: string // Date du dernier message
 }
 
 export async function fetchFcmLogs(params: {
@@ -98,19 +99,19 @@ export async function fetchUniquePackages(): Promise<UniquePackage[]> {
 
   const data: UniquePackagesResponse = await response.json()
 
-  // Transform the API response to match our component expectations
-  // Only show com.wave.business if count is not 0
+  // Retourner tous les packages avec count > 0
   return data.stats
-    .filter(stat => stat.package_name === "com.wave.business" && stat.count > 0)
+    .filter(stat => stat.count > 0)
     .map(stat => ({
-      package_name: "Wave", // Display name as "Wave"
+      package_name: stat.package_name,
       count: stat.count,
-      pending_count: stat.pending_count, // Use actual pending count from API
-      unread_count: stat.unread_count
+      pending_count: stat.pending_count,
+      unread_count: stat.unread_count,
+      last_message_date: (stat as any).last_message_date
     }))
 }
 
-export async function updateFcmStatus(fcmLogUid: string, status: "approved" | "no_order"): Promise<FcmLog> {
+export async function updateFcmStatus(fcmLogUid: string, status: "approved" | "no_order" | "refunded"): Promise<FcmLog> {
   const response = await authenticatedFetch(
     `${BASE_URL}/api/payments/betting/user/fcm-logs/${fcmLogUid}/update_status/`,
     {

@@ -1,0 +1,18 @@
+Pour ajouter un son de notification:
+
+1. Téléchargez un fichier MP3 gratuit depuis:
+   - https://notificationsounds.com/
+   - https://mixkit.co/free-sound-effects/notification/
+   - https://www.zapsplat.com/sound-effect-category/notifications/
+
+2. Renommez-le en "notification.mp3"
+
+3. Placez-le dans le dossier "public/"
+
+4. Le son sera automatiquement utilisé par l'application
+
+Recommandations:
+- Durée: 0.5 à 2 secondes
+- Format: MP3 ou OGG
+- Taille: < 50 KB
+- Volume: Normalisé

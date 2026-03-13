@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { CheckCircle2, XCircle, AlertCircle } from "lucide-react"
+import { CheckCircle2, XCircle, AlertCircle, Undo } from "lucide-react"
 import type { SmsLog } from "@/lib/api"
 import type { FcmLog } from "@/lib/fcm-api"
 
@@ -10,14 +10,14 @@ interface StatusModalProps {
   isOpen: boolean
   onClose: () => void
   message: (SmsLog | FcmLog) | null
-  onStatusChange: (uid: string, status: "approved" | "no_order") => void
+  onStatusChange: (uid: string, status: "approved" | "no_order" | "refunded") => void
   isUpdating?: boolean
 }
 
 export function StatusModal({ isOpen, onClose, message, onStatusChange, isUpdating }: StatusModalProps) {
   if (!message || !isOpen) return null
 
-  const handleStatusSelect = (status: "approved" | "no_order") => {
+  const handleStatusSelect = (status: "approved" | "no_order" | "refunded") => {
     onStatusChange(message.uid, status)
     onClose()
   }
@@ -32,6 +32,14 @@ export function StatusModal({ isOpen, onClose, message, onStatusChange, isUpdati
       icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
       className: "hover:bg-emerald-50 hover:border-emerald-300 dark:hover:bg-emerald-950/30",
       labelClass: "text-emerald-700",
+    },
+    {
+      status: "refunded" as const,
+      label: "Remboursé",
+      description: "La transaction a été remboursée.",
+      icon: <Undo className="h-4 w-4 text-blue-600" />,
+      className: "hover:bg-blue-50 hover:border-blue-300 dark:hover:bg-blue-950/30",
+      labelClass: "text-blue-700",
     },
     {
       status: "no_order" as const,

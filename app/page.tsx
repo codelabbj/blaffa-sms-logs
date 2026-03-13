@@ -8,18 +8,39 @@ import { cn } from "@/lib/utils"
 import { fetchUniqueSenders, type UniqueSender } from "@/lib/api"
 import { fetchUniquePackages, type UniquePackage } from "@/lib/fcm-api"
 import { fetchPinnedSenders, type PinnedSendersResponse, type PinnedSender } from "@/lib/pin-api"
-import { Users, Pin, ChevronRight, Search } from "lucide-react"
+import { Users, Pin, ChevronRight, Search, Bell, BellOff } from "lucide-react"
 import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useAuth } from "@/contexts/auth-context"
+import { useNotifications } from "@/contexts/notification-context"
+import { useConversationTimestamps } from "@/hooks/use-conversation-timestamps"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 export default function HomePage() {
   const router = useRouter()
   const { logout } = useAuth()
+  const { 
+    totalUnreadCount, 
+    hasNewMessages, 
+    markAsChecked,
+    isEnabled,
+    setIsEnabled,
+    refreshNotifications,
+    lastNotificationSender,
+    clearLastNotificationSender,
+  } = useNotifications()
+  const { getTimestamp } = useConversationTimestamps()
   const [searchQuery, setSearchQuery] = useState("")
+  
+  // Variable pour activer/désactiver le tri par date
+  const ENABLE_DATE_SORTING = false // Mettre à true pour activer le tri par date
+
+  // Marquer comme vérifié quand on arrive sur la page
+  useEffect(() => {
+    markAsChecked()
+  }, [markAsChecked])
 
   const { data: senders, isLoading: sendersLoading } = useSWR<UniqueSender[]>(
     "senders",
@@ -48,7 +69,40 @@ export default function HomePage() {
     return sender.slice(0, 2).toUpperCase()
   }
 
+  const getPackageDisplayName = (packageName: string) => {
+    // Mapper les noms de packages vers des noms affichables
+    const displayNames: Record<string, string> = {
+      "com.wave.business": "Wave Business",
+      "com.whatsapp": "WhatsApp",
+      "com.telegram": "Telegram",
+      "com.facebook.orca": "Messenger",
+      // Ajouter d'autres mappings si nécessaire
+    }
+    return displayNames[packageName] || packageName
+  }
+
+  const getPackageInitials = (packageName: string) => {
+    const displayName = getPackageDisplayName(packageName)
+    return displayName.slice(0, 1).toUpperCase()
+  }
+
+  const getPackageColor = (packageName: string) => {
+    // Couleurs par package
+    const colors: Record<string, string> = {
+      "com.wave.business": "bg-emerald-100 text-emerald-700",
+      "com.whatsapp": "bg-green-100 text-green-700",
+      "com.telegram": "bg-blue-100 text-blue-700",
+      "com.facebook.orca": "bg-purple-100 text-purple-700",
+    }
+    return colors[packageName] || "bg-gray-100 text-gray-700"
+  }
+
   const handleSelectConversation = (sender: string, isWave: boolean = false) => {
+    // Effacer l'indicateur si c'est le sender qui a notifié
+    const senderKey = isWave ? `wave-${sender}` : `sms-${sender}`
+    if (lastNotificationSender === senderKey) {
+      clearLastNotificationSender()
+    }
     router.push(`/conversation?id=${encodeURIComponent(sender)}&wave=${isWave}`)
   }
 
@@ -56,13 +110,110 @@ export default function HomePage() {
     sender.sender.toLowerCase().includes(searchQuery.toLowerCase())
   ) || []
 
+  // Tri intelligent: Épinglés > Non lus > Date du dernier message (cache local) > Nombre de non lus
   const sortedSenders = filteredSenders.sort((a, b) => {
     const aPinned = pinnedSenders.has(a.sender)
     const bPinned = pinnedSenders.has(b.sender)
+    
+    // 1. Les épinglés en premier
     if (aPinned && !bPinned) return -1
     if (!aPinned && bPinned) return 1
-    return 0
+    
+    // 2. Les non lus avant les lus
+    if (a.unread_count > 0 && b.unread_count === 0) return -1
+    if (a.unread_count === 0 && b.unread_count > 0) return 1
+    
+    // Si le tri par date est désactivé, on s'arrête ici
+    if (!ENABLE_DATE_SORTING) {
+      // Tri simple par nombre de non lus, puis par count
+      if (a.unread_count !== b.unread_count) {
+        return b.unread_count - a.unread_count
+      }
+      return b.count - a.count
+    }
+    
+    // 3. Tri par date du dernier message (API ou cache local)
+    const aDate = a.last_message_date || getTimestamp(a.sender, false)
+    const bDate = b.last_message_date || getTimestamp(b.sender, false)
+    
+    if (aDate && bDate) {
+      return new Date(bDate).getTime() - new Date(aDate).getTime()
+    }
+    
+    // Si un seul a une date, il passe en premier
+    if (aDate && !bDate) return -1
+    if (!aDate && bDate) return 1
+    
+    // 4. Si pas de date mais les deux ont des non lus, celui avec plus de non lus en premier
+    if (a.unread_count > 0 && b.unread_count > 0) {
+      return b.unread_count - a.unread_count
+    }
+    
+    // 5. Fallback: tri par nombre total de messages
+    return b.count - a.count
   })
+  
+  // LOG: Afficher les 10 premiers senders triés (seulement en dev)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`📋 TRI SMS - Top 10 (Date sorting: ${ENABLE_DATE_SORTING ? 'ON' : 'OFF'}):`)
+    sortedSenders.slice(0, 10).forEach((sender, index) => {
+      const timestamp = getTimestamp(sender.sender, false)
+      console.log(`  ${index + 1}. ${sender.sender}`)
+      console.log(`     - unread: ${sender.unread_count}, count: ${sender.count}`)
+      if (ENABLE_DATE_SORTING) {
+        console.log(`     - timestamp: ${timestamp || "AUCUN"}`)
+      }
+      console.log(`     - pinned: ${pinnedSenders.has(sender.sender)}`)
+    })
+  }
+  
+  // Tri des packages Wave avec le même système
+  const sortedWavePackages = wavePackages?.sort((a, b) => {
+    // 1. Non lus avant lus
+    if (a.unread_count > 0 && b.unread_count === 0) return -1
+    if (a.unread_count === 0 && b.unread_count > 0) return 1
+    
+    // Si le tri par date est désactivé, on s'arrête ici
+    if (!ENABLE_DATE_SORTING) {
+      // Tri simple par nombre de non lus, puis par count
+      if (a.unread_count !== b.unread_count) {
+        return b.unread_count - a.unread_count
+      }
+      return b.count - a.count
+    }
+    
+    // 2. Tri par date (API ou cache local)
+    const aDate = a.last_message_date || getTimestamp(a.package_name, true)
+    const bDate = b.last_message_date || getTimestamp(b.package_name, true)
+    
+    if (aDate && bDate) {
+      return new Date(bDate).getTime() - new Date(aDate).getTime()
+    }
+    
+    if (aDate && !bDate) return -1
+    if (!aDate && bDate) return 1
+    
+    // 3. Fallback: plus de non lus
+    if (a.unread_count > 0 && b.unread_count > 0) {
+      return b.unread_count - a.unread_count
+    }
+    
+    // 4. Fallback final: nombre total
+    return b.count - a.count
+  }) || []
+  
+  // LOG: Afficher les services triés (seulement en dev)
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`📋 TRI SERVICES (Date sorting: ${ENABLE_DATE_SORTING ? 'ON' : 'OFF'}):`)
+    sortedWavePackages.forEach((pkg, index) => {
+      const timestamp = getTimestamp(pkg.package_name, true)
+      console.log(`  ${index + 1}. ${getPackageDisplayName(pkg.package_name)}`)
+      console.log(`     - unread: ${pkg.unread_count}, count: ${pkg.count}`)
+      if (ENABLE_DATE_SORTING) {
+        console.log(`     - timestamp: ${timestamp || "AUCUN"}`)
+      }
+    })
+  }
 
   return (
     <ProtectedRoute>
@@ -71,19 +222,35 @@ export default function HomePage() {
         <div className="flex-shrink-0 bg-primary shadow-md">
           <div className="flex items-center justify-between px-4 py-4">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+              <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center relative">
                 <span className="text-white font-bold text-sm">BS</span>
+                {totalUnreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 border-2 border-primary">
+                    {totalUnreadCount > 99 ? "99+" : totalUnreadCount}
+                  </span>
+                )}
               </div>
               <h1 className="text-xl font-semibold text-white">Blaffa SMS</h1>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={logout}
-              className="text-white/90 hover:text-white hover:bg-white/10"
-            >
-              Déconnexion
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsEnabled(!isEnabled)}
+                className="text-white/90 hover:text-white hover:bg-white/10 p-2"
+                title={isEnabled ? "Désactiver les notifications" : "Activer les notifications"}
+              >
+                {isEnabled ? <Bell className="h-5 w-5" /> : <BellOff className="h-5 w-5" />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={logout}
+                className="text-white/90 hover:text-white hover:bg-white/10"
+              >
+                Déconnexion
+              </Button>
+            </div>
           </div>
 
           {/* Search Bar - WhatsApp Style */}
@@ -118,7 +285,7 @@ export default function HomePage() {
           ) : (
             <div>
               {/* Wave Packages Section */}
-              {wavePackages && wavePackages.length > 0 && (
+              {sortedWavePackages && sortedWavePackages.length > 0 && (
                 <div className="mb-2">
                   <div className="px-4 py-2 bg-muted/40">
                     <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -126,19 +293,24 @@ export default function HomePage() {
                     </p>
                   </div>
                   <div className="divide-y divide-border/30">
-                    {wavePackages.map((pkg) => (
+                    {sortedWavePackages.map((pkg) => (
                       <button
-                        key={`wave-${pkg.package_name}`}
-                        onClick={() => handleSelectConversation("com.wave.business", true)}
-                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors bg-white"
+                        key={`service-${pkg.package_name}`}
+                        onClick={() => handleSelectConversation(pkg.package_name, true)}
+                        className={cn(
+                          "w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors bg-white relative",
+                          lastNotificationSender === `wave-${pkg.package_name}` && "bg-green-50 border-l-4 border-green-500"
+                        )}
                       >
                         <Avatar className="h-11 w-11 flex-shrink-0">
-                          <AvatarFallback className="bg-emerald-100 text-emerald-700 text-base font-semibold">
-                            W
+                          <AvatarFallback className={cn("text-base font-semibold", getPackageColor(pkg.package_name))}>
+                            {getPackageInitials(pkg.package_name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0 text-left">
-                          <p className="font-semibold text-foreground truncate text-[15px]">Wave Business</p>
+                          <p className="font-semibold text-foreground truncate text-[15px]">
+                            {getPackageDisplayName(pkg.package_name)}
+                          </p>
                           <p className="text-[13px] text-muted-foreground truncate">
                             {pkg.count} message{pkg.count !== 1 ? "s" : ""}
                           </p>
@@ -150,6 +322,14 @@ export default function HomePage() {
                             </Badge>
                           )}
                         </div>
+                        {lastNotificationSender === `wave-${pkg.package_name}` && (
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                            <span className="flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                            </span>
+                          </div>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -167,11 +347,15 @@ export default function HomePage() {
                   <div className="divide-y divide-border/30">
                     {sortedSenders.map((sender) => {
                       const isPinned = pinnedSenders.has(sender.sender)
+                      const isLastNotification = lastNotificationSender === `sms-${sender.sender}`
                       return (
                         <button
                           key={sender.sender}
                           onClick={() => handleSelectConversation(sender.sender, false)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors bg-white"
+                          className={cn(
+                            "w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors bg-white relative",
+                            isLastNotification && "bg-green-50 border-l-4 border-green-500"
+                          )}
                         >
                           <div className="relative flex-shrink-0">
                             <Avatar className="h-11 w-11">
@@ -198,6 +382,14 @@ export default function HomePage() {
                               </Badge>
                             )}
                           </div>
+                          {isLastNotification && (
+                            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                              <span className="flex h-3 w-3">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                              </span>
+                            </div>
+                          )}
                         </button>
                       )
                     })}
@@ -206,7 +398,7 @@ export default function HomePage() {
               )}
 
               {/* Empty State */}
-              {sortedSenders.length === 0 && !wavePackages?.length && (
+              {sortedSenders.length === 0 && !sortedWavePackages?.length && (
                 <div className="py-20 text-center px-4 bg-white">
                   <Users className="h-14 w-14 text-muted-foreground/30 mx-auto mb-3" />
                   <p className="text-base font-medium text-muted-foreground">
