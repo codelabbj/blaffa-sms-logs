@@ -206,34 +206,14 @@ export function MessageThread({
     )
 
   return (
-    <div className="flex flex-1 flex-col h-full overflow-hidden">
-      {/* Thread header */}
-      <div className="bg-card border-b border-border px-5 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-8 w-8">
-            <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
-              {sender.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <p className="text-sm font-semibold text-foreground">{sender}</p>
-            <p className="text-xs text-muted-foreground">
-              {isWaveMode ? "Wave Business" : "SMS"} · {messages.length} message{messages.length !== 1 ? "s" : ""}
-            </p>
-          </div>
-        </div>
-        <Badge variant="outline" className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          {isWaveMode ? "FCM" : "SMS"}
-        </Badge>
-      </div>
-
+    <div className="flex flex-1 flex-col h-full overflow-hidden bg-muted/20">
       {/* Message list */}
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-muted/20"
+        className="flex-1 overflow-y-auto"
       >
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
+        <div className="max-w-3xl mx-auto px-3 py-3 space-y-2">
           {messages.map((message) => {
             const config = statusConfig[message.status] ?? statusConfig.pending
             const amount = getMessageAmount(message)
@@ -245,90 +225,94 @@ export function MessageThread({
               <div
                 key={message.uid}
                 className={cn(
-                  "bg-card border border-border rounded-lg border-l-4 transition-shadow hover:shadow-md",
+                  "bg-white border border-border/50 rounded-lg border-l-4 transition-shadow shadow-sm",
                   config.rowClass,
                   isNew && "ring-1 ring-primary/30"
                 )}
               >
                 {/* Card header */}
-                <div className="flex items-center justify-between px-4 py-3 border-b border-border/60">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+                  <div className="flex items-center gap-1.5">
                     <span className={cn(
-                      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium border",
+                      "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium border",
                       config.badgeClass
                     )}>
                       {config.icon}
                       {message.status_display || config.label}
                     </span>
                     {isNew && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                         Nouveau
                       </span>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     {getMessagePhone(message) && (
                       <button
                         onClick={() => copyToClipboard(getMessagePhone(message), message.uid)}
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-primary bg-primary/5 border border-primary/20 px-2 py-0.5 rounded hover:bg-primary/10 transition-colors"
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary bg-primary/5 border border-primary/20 px-1.5 py-0.5 rounded hover:bg-primary/10 transition-colors"
                       >
                         {copiedUid === message.uid ? (
-                          <Check className="h-3 w-3" />
+                          <Check className="h-2.5 w-2.5" />
                         ) : (
-                          <Copy className="h-3 w-3" />
+                          <Copy className="h-2.5 w-2.5" />
                         )}
                         {getMessagePhone(message)}
                       </button>
                     )}
                     {amount && (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                        <DollarSign className="h-3 w-3" />
-                        {Number(amount).toLocaleString("fr-FR")} FCFA
+                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                        <DollarSign className="h-2.5 w-2.5" />
+                        {Number(amount).toLocaleString("fr-FR")}
                       </span>
                     )}
-                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {formatTimestamp(getMessageDate(message))}
-                    </span>
                   </div>
                 </div>
 
                 {/* Message body */}
-                <div className="px-4 py-3">
+                <div className="px-3 py-2.5">
                   <p className={cn(
-                    "text-sm text-foreground leading-relaxed whitespace-pre-wrap break-words font-mono",
-                    shouldShowExpand(message) && !expanded && "line-clamp-5"
+                    "text-[13px] text-foreground leading-relaxed whitespace-pre-wrap break-words",
+                    shouldShowExpand(message) && !expanded && "line-clamp-4"
                   )}>
                     {content}
                   </p>
                   {shouldShowExpand(message) && (
                     <button
                       onClick={() => toggleMessageExpansion(message.uid)}
-                      className="mt-2 flex items-center gap-1 text-xs text-primary hover:underline font-medium"
+                      className="mt-1.5 flex items-center gap-1 text-[11px] text-primary hover:underline font-medium"
                     >
                       {expanded ? (
                         <><ChevronUp className="h-3 w-3" /> Réduire</>
                       ) : (
-                        <><ChevronDown className="h-3 w-3" /> Voir tout le message</>
+                        <><ChevronDown className="h-3 w-3" /> Voir plus</>
                       )}
                     </button>
                   )}
                 </div>
 
+                {/* Timestamp */}
+                <div className="px-3 pb-2">
+                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                    <Calendar className="h-3 w-3" />
+                    {formatTimestamp(getMessageDate(message))}
+                  </span>
+                </div>
+
                 {/* Card footer - Direct actions */}
-                <div className="px-4 py-2.5 border-t border-border/60 flex justify-end gap-2">
+                <div className="px-3 py-2 border-t border-border/40 flex justify-end gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => onUpdateStatus(message.uid, "no_order")}
                     disabled={isUpdating || message.status === "no_order"}
                     className={cn(
-                      "h-8 text-xs gap-1.5 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800",
+                      "h-7 text-[11px] gap-1 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 px-2.5",
                       message.status === "no_order" && "opacity-50 cursor-not-allowed"
                     )}
                   >
-                    <Ban className="h-3.5 w-3.5" />
+                    <Ban className="h-3 w-3" />
                     Rejeter
                   </Button>
                   <Button
@@ -337,11 +321,11 @@ export function MessageThread({
                     onClick={() => onUpdateStatus(message.uid, "approved")}
                     disabled={isUpdating || message.status === "approved"}
                     className={cn(
-                      "h-8 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white",
+                      "h-7 text-[11px] gap-1 bg-primary hover:bg-primary/90 text-white px-2.5",
                       message.status === "approved" && "opacity-50 cursor-not-allowed"
                     )}
                   >
-                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <CheckCircle2 className="h-3 w-3" />
                     Approuver
                   </Button>
                 </div>
@@ -350,15 +334,15 @@ export function MessageThread({
           })}
 
           {isLoadingMore && (
-            <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground text-sm">
+            <div className="flex items-center justify-center gap-2 py-6 text-muted-foreground text-[13px]">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Chargement des messages…
+              Chargement…
             </div>
           )}
 
           {!isLoadingMore && hasNextPage && (
-            <p className="text-center text-xs text-muted-foreground py-4">
-              Faites défiler pour charger les messages précédents
+            <p className="text-center text-[11px] text-muted-foreground py-3">
+              Faites défiler pour charger plus
             </p>
           )}
         </div>

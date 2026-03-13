@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Blaffa SMS</string>
+    <string name="title_activity_main">Blaffa SMS</string>
+    <string name="package_name">net.blaffa.sms</string>
+    <string name="custom_url_scheme">net.blaffa.sms</string>
+</resources>

@@ -1,603 +1,227 @@
 "use client"
 
-import { SenderSidebar } from "@/components/sender-sidebar"
-import { MessageThread } from "@/components/message-thread-v2"
-import { TopBar } from "@/components/top-bar"
-import { StatsCards } from "@/components/stats-cards"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import { ProtectedRoute } from "@/components/protected-route"
-import { useAuth } from "@/contexts/auth-context"
-import {
-  fetchSmsLogs,
-  fetchSmsStats,
-  fetchUniqueSenders,
-  updateSmsStatus,
-  type SmsStats,
-  type UniqueSender,
-  type SmsLogsResponse,
-} from "@/lib/api"
-import {
-  fetchFcmLogs,
-  fetchUniquePackages,
-  updateFcmStatus,
-  type FcmLogsResponse,
-  type UniquePackage,
-} from "@/lib/fcm-api"
-import {
-  pinSender,
-  unpinSender,
-  fetchPinnedSenders,
-  type PinSenderResponse,
-  type UnpinSenderResponse,
-  type PinnedSendersResponse,
-  type PinnedSender,
-} from "@/lib/pin-api"
-import { useState, useCallback, useEffect, useRef } from "react"
+import { cn } from "@/lib/utils"
+import { fetchUniqueSenders, type UniqueSender } from "@/lib/api"
+import { fetchUniquePackages, type UniquePackage } from "@/lib/fcm-api"
+import { fetchPinnedSenders, type PinnedSendersResponse, type PinnedSender } from "@/lib/pin-api"
+import { Users, Pin, ChevronRight, Search } from "lucide-react"
+import { useRouter } from "next/navigation"
 import useSWR from "swr"
-import { useMessagesV2 } from "@/hooks/use-messages-v2"
-import { useConversationStore } from "@/hooks/use-conversation-store"
+import { useState } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 
-import { useToast } from "@/hooks/use-toast"
-
-export default function DashboardPage() {
+export default function HomePage() {
+  const router = useRouter()
   const { logout } = useAuth()
-  const { toast } = useToast()
-  const [selectedSender, setSelectedSender] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [isUpdating, setIsUpdating] = useState(false)
-  const [currentPage, setCurrentPage] = useState(1)
-  const [hasNextPage, setHasNextPage] = useState(false)
-  const [isLoadingMore, setIsLoadingMore] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [isWaveMode, setIsWaveMode] = useState(false)
-  const [isPinning, setIsPinning] = useState(false)
-  const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  const [useCacheOnly, setUseCacheOnly] = useState(false)
-  const [restoreScrollTop, setRestoreScrollTop] = useState(0)
-  const currentScrollTopRef = useRef(0)
 
-  // Hook V2 - Architecture stable pour gérer les messages
-  const {
-    messages: allMessages,
-    addMessages,
-    updateMessage,
-    clearMessages,
-    newMessageIds,
-    markMessagesAsRead,
-    getMessagesMap,
-    getOrderArray,
-    restoreState,
-  } = useMessagesV2({
-    onNewMessages: (newMessages) => {
-      console.log(`✨ ${newMessages.length} nouveau(x) message(s) détecté(s)`)
-    },
-  })
-
-  // Store Zustand pour garder l'état de chaque conversation
-  const saveConversation = useConversationStore(state => state.saveConversation)
-  const loadConversation = useConversationStore(state => state.loadConversation)
-
-  // Récupérer les expéditeurs uniques
-  const {
-    data: senders,
-    isLoading: sendersLoading,
-    mutate: mutateSenders,
-  } = useSWR<UniqueSender[]>("senders", fetchUniqueSenders, {
-    refreshInterval: 60000, // Actualisation automatique toutes les 60 secondes
-  })
-
-  // Récupérer les packages Wave
-  const {
-    data: wavePackages,
-    isLoading: wavePackagesLoading,
-    mutate: mutateWavePackages,
-  } = useSWR<UniquePackage[]>("wave-packages", fetchUniquePackages, {
-    refreshInterval: 60000,
-    onSuccess: (data) => {
-      console.log("🌊 Wave packages fetched successfully:", data)
-    },
-    onError: (error) => {
-      console.error("❌ Error fetching Wave packages:", error)
-    }
-  })
-
-  // Debug logging for Wave packages
-  console.log("Main page - wavePackages:", wavePackages)
-  console.log("Main page - wavePackagesLoading:", wavePackagesLoading)
-
-  // Récupérer les expéditeurs épinglés
-  const {
-    data: pinnedSendersData,
-    isLoading: pinnedSendersLoading,
-    mutate: mutatePinnedSenders,
-  } = useSWR<PinnedSendersResponse>("pinned-senders", fetchPinnedSenders, {
-    refreshInterval: 60000,
-  })
-
-  // Derived state for pinned senders from API data
-  const pinnedSenders = new Set<string>(pinnedSendersData?.pinned_senders?.map((p: PinnedSender) => p.sender) || [])
-
-  // Récupérer les statistiques
-  const {
-    data: stats,
-    isLoading: statsLoading,
-    mutate: mutateStats,
-  } = useSWR<SmsStats>("stats", fetchSmsStats, {
-    refreshInterval: 60000,
-  })
-  // Architecture Google Messages : Cache intelligent par conversation
-  const {
-    data: messagesData,
-    isLoading: messagesLoading,
-    mutate: mutateMessages,
-  } = useSWR(
-    // Clé unique par conversation (pas par page)
-    selectedSender ? `messages-${isWaveMode ? 'wave' : 'sms'}-${selectedSender}-${searchQuery}-${statusFilter}` : null,
-    async () => {
-      if (!selectedSender) return null
-      console.log("🔄 SWR fetching page 1 for:", selectedSender)
-
-      if (isWaveMode) {
-        return await fetchFcmLogs({
-          package_name: selectedSender,
-          search: searchQuery || undefined,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-          ordering: "-created_at",
-          page: 1,
-          page_size: 20,
-        })
-      } else {
-        return await fetchSmsLogs({
-          sender: selectedSender,
-          search: searchQuery || undefined,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-          ordering: "-created_at",
-          page: 1,
-          page_size: 20,
-        })
-      }
-    },
-    {
-      // CLÉS PRO : Désactiver refresh si on a paginé ou si on restaure depuis cache
-      refreshInterval: currentPage === 1 && !useCacheOnly ? 60000 : 0,
-      revalidateOnFocus: false,
-      revalidateOnReconnect: !useCacheOnly,
-      revalidateOnMount: !useCacheOnly,
-      revalidateIfStale: !useCacheOnly,
-      dedupingInterval: 30000,
-      onSuccess: (data: SmsLogsResponse | FcmLogsResponse | null) => {
-        if (data) {
-          // Remplacer UNIQUEMENT si on est sur la page 1
-          if (currentPage === 1) {
-            console.log("📥 Loading page 1:", data.results.length, "messages")
-            clearMessages()
-            addMessages(data.results, 'top') // Nouveaux messages en haut
-          }
-          setHasNextPage(!!data.next)
-        }
-      },
-    },
+  const { data: senders, isLoading: sendersLoading } = useSWR<UniqueSender[]>(
+    "senders",
+    fetchUniqueSenders,
+    { refreshInterval: 60000 }
   )
 
-  const handleUpdateStatus = async (uid: string, status: "approved" | "no_order") => {
-    setIsUpdating(true)
-    setError(null)
-    try {
-      if (isWaveMode) {
-        await updateFcmStatus(uid, status)
-        mutateWavePackages()
-      } else {
-        await updateSmsStatus(uid, status)
-        mutateSenders()
-      }
-      // Mettre à jour le message localement immédiatement pour un feedback instantané
-      const message = allMessages.find(m => m.uid === uid)
-      if (message) {
-        updateMessage(uid, {
-          status: status,
-          status_display: status === "approved" ? "Approuvé" : "Pas de commande"
-        })
-      }
+  const { data: wavePackages, isLoading: wavePackagesLoading } = useSWR<UniquePackage[]>(
+    "wave-packages",
+    fetchUniquePackages,
+    { refreshInterval: 60000 }
+  )
 
-      // Actualiser les données depuis le serveur
-      mutateMessages()
-      mutateStats()
+  const { data: pinnedSendersData } = useSWR<PinnedSendersResponse>(
+    "pinned-senders",
+    fetchPinnedSenders,
+    { refreshInterval: 60000 }
+  )
 
-      // Show success feedback
-      toast({
-        variant: "success",
-        title: status === "approved" ? "Message approuvé" : "Message rejeté",
-        description: `Le statut du message a été mis à jour avec succès.`,
-      })
-    } catch (error) {
-      console.error("Échec de la mise à jour du statut:", error)
+  const pinnedSenders = new Set<string>(
+    pinnedSendersData?.pinned_senders?.map((p: PinnedSender) => p.sender) || []
+  )
 
-      // Extract error message from backend response
-      let errorMessage = "Erreur lors de la mise à jour du statut. Veuillez réessayer."
-
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'object' && error !== null) {
-        // Try to extract error from API response
-        const errorObj = error as any
-        if (errorObj.response?.data?.status && Array.isArray(errorObj.response.data.status)) {
-          errorMessage = errorObj.response.data.status[0]
-        } else if (errorObj.response?.data?.message) {
-          errorMessage = errorObj.response.data.message
-        } else if (errorObj.response?.data?.error) {
-          errorMessage = errorObj.response.data.error
-        } else if (errorObj.message) {
-          errorMessage = errorObj.message
-        }
-      }
-
-      toast({
-        variant: "destructive",
-        title: "Erreur",
-        description: errorMessage,
-      })
-      setError(errorMessage)
-    } finally {
-      setIsUpdating(false)
-    }
+  const getInitials = (sender: string) => {
+    if (sender.startsWith("+")) return sender.slice(1, 4)
+    return sender.slice(0, 2).toUpperCase()
   }
 
-  const handleRefresh = () => {
-    setIsRefreshing(true)
-    mutateSenders()
-    mutateStats()
-    mutateMessages()
-    mutateWavePackages()
-    mutatePinnedSenders()
-
-    // Reset refreshing state after a short delay to show the animation
-    setTimeout(() => {
-      setIsRefreshing(false)
-    }, 1000)
+  const handleSelectConversation = (sender: string, isWave: boolean = false) => {
+    router.push(`/conversation?id=${encodeURIComponent(sender)}&wave=${isWave}`)
   }
 
-  const handlePinSender = async (sender: string) => {
-    setIsPinning(true)
-    setError(null)
-    try {
-      const response = await pinSender(sender)
-      mutatePinnedSenders()
-      console.log("Sender pinned successfully:", response.message)
-    } catch (error) {
-      console.error("Failed to pin sender:", error)
+  const filteredSenders = senders?.filter((sender) =>
+    sender.sender.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || []
 
-      // Extract error message from backend response
-      let errorMessage = "Erreur lors de l'épinglage de l'expéditeur. Veuillez réessayer."
-
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'object' && error !== null) {
-        const errorObj = error as any
-        if (errorObj.response?.data?.sender && Array.isArray(errorObj.response.data.sender)) {
-          errorMessage = errorObj.response.data.sender[0]
-        } else if (errorObj.response?.data?.message) {
-          errorMessage = errorObj.response.data.message
-        } else if (errorObj.response?.data?.error) {
-          errorMessage = errorObj.response.data.error
-        } else if (errorObj.message) {
-          errorMessage = errorObj.message
-        }
-      }
-
-      // If the sender is already pinned, silently re-sync instead of showing an error
-      const isAlreadyPinned =
-        errorMessage.toLowerCase().includes("déjà épinglé") ||
-        errorMessage.toLowerCase().includes("already pinned") ||
-        errorMessage.toLowerCase().includes("already exists")
-
-      if (isAlreadyPinned) {
-        // Just refresh the list to get back in sync with the server
-        mutatePinnedSenders()
-        console.log("Sender was already pinned, re-syncing list.")
-      } else {
-        setError(errorMessage)
-      }
-    } finally {
-      setIsPinning(false)
-    }
-  }
-
-  const handleUnpinSender = async (sender: string) => {
-    setIsPinning(true)
-    setError(null)
-    try {
-      const response = await unpinSender(sender)
-      mutatePinnedSenders()
-      console.log("Sender unpinned successfully:", response.message)
-    } catch (error) {
-      console.error("Failed to unpin sender:", error)
-
-      // Extract error message from backend response
-      let errorMessage = "Erreur lors du désépinglage de l'expéditeur. Veuillez réessayer."
-
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'object' && error !== null) {
-        const errorObj = error as any
-        if (errorObj.response?.data?.sender && Array.isArray(errorObj.response.data.sender)) {
-          errorMessage = errorObj.response.data.sender[0]
-        } else if (errorObj.response?.data?.message) {
-          errorMessage = errorObj.response.data.message
-        } else if (errorObj.response?.data?.error) {
-          errorMessage = errorObj.response.data.error
-        } else if (errorObj.message) {
-          errorMessage = errorObj.message
-        }
-      }
-
-      setError(errorMessage)
-    } finally {
-      setIsPinning(false)
-    }
-  }
-
-  const handleLoadMore = useCallback(async () => {
-    // Protection stricte contre les appels multiples
-    if (!hasNextPage || isLoadingMore || !selectedSender) {
-      console.log("⛔ LoadMore bloqué:", { hasNextPage, isLoadingMore, selectedSender })
-      return
-    }
-
-    console.log(`📥 Chargement page ${currentPage + 1}...`)
-    setIsLoadingMore(true)
-    setError(null)
-
-    try {
-      const nextPage = currentPage + 1
-      let data: SmsLogsResponse | FcmLogsResponse
-
-      if (isWaveMode) {
-        data = await fetchFcmLogs({
-          package_name: selectedSender,
-          search: searchQuery || undefined,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-          ordering: "-created_at",
-          page: nextPage,
-          page_size: 20,
-        })
-      } else {
-        data = await fetchSmsLogs({
-          sender: selectedSender,
-          search: searchQuery || undefined,
-          status: statusFilter !== "all" ? statusFilter : undefined,
-          ordering: "-created_at",
-          page: nextPage,
-          page_size: 20,
-        })
-      }
-
-      console.log(`✅ Page ${nextPage} chargée:`, data.results.length, "messages")
-
-      // Ajouter les messages de la pagination EN BAS (scroll infini)
-      addMessages(data.results, 'bottom')
-
-      // Mettre à jour l'état de pagination
-      setCurrentPage(nextPage)
-      setHasNextPage(!!data.next)
-
-    } catch (error) {
-      console.error("❌ Erreur chargement page:", error)
-
-      let errorMessage = "Erreur lors du chargement des messages."
-
-      if (error instanceof Error) {
-        errorMessage = error.message
-      } else if (typeof error === 'object' && error !== null) {
-        const errorObj = error as any
-        if (errorObj.response?.data?.status && Array.isArray(errorObj.response.data.status)) {
-          errorMessage = errorObj.response.data.status[0]
-        } else if (errorObj.response?.data?.message) {
-          errorMessage = errorObj.response.data.message
-        } else if (errorObj.response?.data?.error) {
-          errorMessage = errorObj.response.data.error
-        }
-      }
-
-      setError(errorMessage)
-    } finally {
-      // Délai de sécurité avant de permettre un nouveau chargement
-      setTimeout(() => {
-        setIsLoadingMore(false)
-      }, 800)
-    }
-  }, [hasNextPage, isLoadingMore, selectedSender, currentPage, searchQuery, statusFilter, isWaveMode, addMessages])
-
-  // Changement de conversation avec cache
-  const handleSelectSender = useCallback((sender: string | null, waveMode: boolean = false) => {
-    console.log("🎯 Changement de conversation:", { sender, waveMode })
-
-    const senderChanged = selectedSender !== sender
-    const waveModeChanged = isWaveMode !== waveMode
-
-    if (senderChanged || waveModeChanged) {
-      // 1. SAUVEGARDER l'état de la conversation actuelle
-      if (selectedSender) {
-        const currentKey = `${isWaveMode ? 'wave' : 'sms'}-${selectedSender}`
-        const scrollPosition = currentScrollTopRef.current
-
-        saveConversation(currentKey, {
-          messages: allMessages,
-          currentPage,
-          hasNextPage,
-          scrollPosition,
-          messageMap: getMessagesMap(),
-          orderArray: getOrderArray(),
-        })
-      }
-
-      // 2. CHARGER l'état de la nouvelle conversation (si existe)
-      if (sender) {
-        const newKey = `${waveMode ? 'wave' : 'sms'}-${sender}`
-        const cached = loadConversation(newKey)
-
-        if (cached) {
-          console.log("✅ Conversation trouvée en cache, restauration...")
-          setUseCacheOnly(true)
-          restoreState(cached.messageMap, cached.orderArray)
-          setCurrentPage(cached.currentPage)
-          setHasNextPage(cached.hasNextPage)
-          setRestoreScrollTop(cached.scrollPosition)
-          currentScrollTopRef.current = cached.scrollPosition
-
-          console.log(`📜 Scroll à restaurer: ${cached.scrollPosition}px`)
-        } else {
-          console.log("❌ Pas de cache, nouvelle conversation")
-          setUseCacheOnly(false)
-          clearMessages()
-          setCurrentPage(1)
-          setHasNextPage(false)
-          setRestoreScrollTop(0)
-          currentScrollTopRef.current = 0
-        }
-      } else {
-        setUseCacheOnly(false)
-        clearMessages()
-        setCurrentPage(1)
-        setHasNextPage(false)
-        setRestoreScrollTop(0)
-        currentScrollTopRef.current = 0
-      }
-
-      setIsLoadingMore(false)
-      setError(null)
-    }
-
-    setSelectedSender(sender)
-    setIsWaveMode(waveMode)
-    setIsMobileMenuOpen(false)
-  }, [
-    selectedSender,
-    isWaveMode,
-    allMessages,
-    currentPage,
-    hasNextPage,
-    clearMessages,
-    saveConversation,
-    loadConversation,
-    getMessagesMap,
-    getOrderArray,
-    restoreState,
-  ])
+  const sortedSenders = filteredSenders.sort((a, b) => {
+    const aPinned = pinnedSenders.has(a.sender)
+    const bPinned = pinnedSenders.has(b.sender)
+    if (aPinned && !bPinned) return -1
+    if (!aPinned && bPinned) return 1
+    return 0
+  })
 
   return (
     <ProtectedRoute>
-      <div className="flex h-screen flex-col bg-background">
-        <TopBar
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          statusFilter={statusFilter}
-          onStatusFilterChange={setStatusFilter}
-          onRefresh={handleRefresh}
-          isRefreshing={isRefreshing}
-          onLogout={logout}
-          onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        />
-
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar - Hidden on mobile, visible on desktop */}
-          <div className="hidden lg:flex h-full">
-            <SenderSidebar
-              senders={senders || []}
-              selectedSender={selectedSender}
-              onSelectSender={handleSelectSender}
-              isLoading={sendersLoading}
-              wavePackages={wavePackages || []}
-              wavePackagesLoading={wavePackagesLoading}
-              pinnedSenders={pinnedSenders}
-              onPinSender={handlePinSender}
-              onUnpinSender={handleUnpinSender}
-              isPinning={isPinning}
-            />
+      <div className="flex flex-col h-screen bg-muted/30">
+        {/* Header - WhatsApp Style */}
+        <div className="flex-shrink-0 bg-primary shadow-md">
+          <div className="flex items-center justify-between px-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-sm">BS</span>
+              </div>
+              <h1 className="text-xl font-semibold text-white">Blaffa SMS</h1>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={logout}
+              className="text-white/90 hover:text-white hover:bg-white/10"
+            >
+              Déconnexion
+            </Button>
           </div>
 
-          {/* Main Content */}
-          <div className="flex flex-1 flex-col min-w-0">
-            {/* Error Display */}
-            {error && (
-              <div className="bg-red-50 border-l-4 border-red-400 p-3 sm:p-4 m-2 sm:m-4 rounded">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-4 w-4 sm:h-5 sm:w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-2 sm:ml-3 flex-1 min-w-0">
-                    <p className="text-xs sm:text-sm text-red-700 break-words">{error}</p>
-                    <button
-                      onClick={() => setError(null)}
-                      className="mt-1 sm:mt-2 text-xs sm:text-sm text-red-600 hover:text-red-500 underline"
-                    >
-                      Fermer
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Stats Section - Commented out for now */}
-            {/* <div className="border-b border-border bg-white p-4 lg:p-6 shadow-sm">
-              <StatsCards stats={stats || null} isLoading={statsLoading} />
-            </div> */}
-
-            {/* Messages Section */}
-            <div className="flex flex-col flex-1 min-h-0">
-              <MessageThread
-                key={selectedSender ? `${isWaveMode ? 'wave' : 'sms'}-${selectedSender}` : 'empty'}
-                messages={allMessages}
-                sender={selectedSender}
-                onUpdateStatus={handleUpdateStatus}
-                isLoading={messagesLoading}
-                isUpdating={isUpdating}
-                hasNextPage={hasNextPage}
-                isLoadingMore={isLoadingMore}
-                onLoadMore={handleLoadMore}
-                currentPage={currentPage}
-                isWaveMode={isWaveMode}
-                newMessageIds={newMessageIds}
-                onMarkAsRead={markMessagesAsRead}
-                restoreScrollTop={restoreScrollTop}
-                onScrollPositionChange={(pos) => {
-                  currentScrollTopRef.current = pos
-                }}
+          {/* Search Bar - WhatsApp Style */}
+          <div className="px-4 pb-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Rechercher une conversation..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-11 h-10 bg-white rounded-full border-0 shadow-sm focus-visible:ring-2 focus-visible:ring-white/50"
               />
             </div>
           </div>
         </div>
 
-        {/* Mobile Sidebar Overlay */}
-        {isMobileMenuOpen && (
-          <div
-            className="lg:hidden fixed inset-0 z-50 bg-black/50 transition-opacity"
-            onClick={() => setIsMobileMenuOpen(false)}
-          >
-            <div
-              className="absolute left-0 top-0 h-full w-80 max-w-[85vw] bg-white shadow-xl transform transition-transform"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <SenderSidebar
-                senders={senders || []}
-                selectedSender={selectedSender}
-                onSelectSender={(sender, waveMode) => {
-                  handleSelectSender(sender, waveMode)
-                  setIsMobileMenuOpen(false)
-                }}
-                isLoading={sendersLoading}
-                wavePackages={wavePackages || []}
-                wavePackagesLoading={wavePackagesLoading}
-                pinnedSenders={pinnedSenders}
-                onPinSender={handlePinSender}
-                onUnpinSender={handleUnpinSender}
-                isPinning={isPinning}
-              />
+        {/* Conversations List */}
+        <div className="flex-1 overflow-y-auto bg-white">
+          {sendersLoading || wavePackagesLoading ? (
+            <div className="p-2 space-y-1">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-white">
+                  <Skeleton className="h-11 w-11 rounded-full flex-shrink-0" />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-3.5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <div>
+              {/* Wave Packages Section */}
+              {wavePackages && wavePackages.length > 0 && (
+                <div className="mb-2">
+                  <div className="px-4 py-2 bg-muted/40">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Services
+                    </p>
+                  </div>
+                  <div className="divide-y divide-border/30">
+                    {wavePackages.map((pkg) => (
+                      <button
+                        key={`wave-${pkg.package_name}`}
+                        onClick={() => handleSelectConversation("com.wave.business", true)}
+                        className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors bg-white"
+                      >
+                        <Avatar className="h-11 w-11 flex-shrink-0">
+                          <AvatarFallback className="bg-emerald-100 text-emerald-700 text-base font-semibold">
+                            W
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="font-semibold text-foreground truncate text-[15px]">Wave Business</p>
+                          <p className="text-[13px] text-muted-foreground truncate">
+                            {pkg.count} message{pkg.count !== 1 ? "s" : ""}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          {pkg.unread_count > 0 && (
+                            <Badge className="bg-primary text-white text-[11px] px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                              {pkg.unread_count}
+                            </Badge>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* SMS Senders Section */}
+              {sortedSenders.length > 0 && (
+                <div>
+                  <div className="px-4 py-2 bg-muted/40">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      SMS ({sortedSenders.length})
+                    </p>
+                  </div>
+                  <div className="divide-y divide-border/30">
+                    {sortedSenders.map((sender) => {
+                      const isPinned = pinnedSenders.has(sender.sender)
+                      return (
+                        <button
+                          key={sender.sender}
+                          onClick={() => handleSelectConversation(sender.sender, false)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-muted/30 active:bg-muted/50 transition-colors bg-white"
+                        >
+                          <div className="relative flex-shrink-0">
+                            <Avatar className="h-11 w-11">
+                              <AvatarFallback className="bg-muted text-foreground text-base font-semibold">
+                                {getInitials(sender.sender)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {isPinned && (
+                              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 rounded-full border-2 border-white flex items-center justify-center shadow-sm">
+                                <Pin className="h-2 w-2 text-white fill-white" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="font-semibold text-foreground truncate text-[15px]">{sender.sender}</p>
+                            <p className="text-[13px] text-muted-foreground truncate">
+                              {sender.count} message{sender.count !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                            {sender.unread_count > 0 && (
+                              <Badge className="bg-primary text-white text-[11px] px-1.5 py-0.5 rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                                {sender.unread_count}
+                              </Badge>
+                            )}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {sortedSenders.length === 0 && !wavePackages?.length && (
+                <div className="py-20 text-center px-4 bg-white">
+                  <Users className="h-14 w-14 text-muted-foreground/30 mx-auto mb-3" />
+                  <p className="text-base font-medium text-muted-foreground">
+                    {searchQuery ? "Aucune conversation trouvée" : "Aucune conversation"}
+                  </p>
+                  <p className="text-[13px] text-muted-foreground/70 mt-1.5">
+                    {searchQuery
+                      ? "Essayez une autre recherche"
+                      : "Les messages apparaîtront ici dès réception"}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </ProtectedRoute>
   )
