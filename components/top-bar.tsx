@@ -3,7 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { RefreshCw, Search, LogOut, Filter, Menu, X } from "lucide-react"
+import { RefreshCw, Search, LogOut, Filter, Menu, X, Bell, BellOff } from "lucide-react"
 
 interface TopBarProps {
   searchQuery: string
@@ -14,6 +14,8 @@ interface TopBarProps {
   isRefreshing?: boolean
   onLogout?: () => void
   onMenuClick?: () => void
+  soundEnabled?: boolean
+  onToggleSound?: () => void
 }
 
 export function TopBar({
@@ -25,6 +27,8 @@ export function TopBar({
   isRefreshing,
   onLogout,
   onMenuClick,
+  soundEnabled = true,
+  onToggleSound,
 }: TopBarProps) {
   const STATUS_OPTIONS = [
     { value: "all", label: "Tous les statuts", dot: "bg-muted-foreground/40" },
@@ -119,6 +123,17 @@ export function TopBar({
 
         {/* Actions */}
         <div className="flex items-center gap-1 flex-shrink-0">
+          {onToggleSound && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSound}
+              title={soundEnabled ? "Désactiver les sons" : "Activer les sons"}
+              className={`h-8 w-8 ${soundEnabled ? "text-primary" : "text-muted-foreground/40"}`}
+            >
+              {soundEnabled ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -162,6 +177,17 @@ export function TopBar({
           <span className="text-sm font-semibold text-foreground">Blaffa SMS Logs</span>
         </div>
         <div className="ml-auto flex items-center gap-1">
+          {onToggleSound && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onToggleSound}
+              title={soundEnabled ? "Désactiver les sons" : "Activer les sons"}
+              className={`h-8 w-8 ${soundEnabled ? "text-primary" : "text-muted-foreground/40"}`}
+            >
+              {soundEnabled ? <Bell className="h-3.5 w-3.5" /> : <BellOff className="h-3.5 w-3.5" />}
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"

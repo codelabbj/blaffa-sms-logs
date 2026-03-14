@@ -58,6 +58,19 @@ export default function DashboardPage() {
   const [restoreScrollTop, setRestoreScrollTop] = useState(0)
   const currentScrollTopRef = useRef(0)
   const prevUnreadCountRef = useRef(-1)
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    const saved = localStorage.getItem('notif-sound-enabled')
+    return saved === null ? true : saved === 'true'
+  })
+
+  const handleToggleSound = () => {
+    setSoundEnabled(prev => {
+      const next = !prev
+      localStorage.setItem('notif-sound-enabled', String(next))
+      return next
+    })
+  }
 
   // Hook V2 - Architecture stable pour gérer les messages
   const {
@@ -73,7 +86,8 @@ export default function DashboardPage() {
   } = useMessagesV2({
     onNewMessages: (newMessages) => {
       console.log(`✨ ${newMessages.length} nouveau(x) message(s) détecté(s)`)
-      playNotificationSound()
+      // Sound is NOT played here — this fires when opening a conversation
+      // with unread messages, not when new messages actually arrive globally.
     },
   })
 
@@ -118,21 +132,20 @@ export default function DashboardPage() {
     refreshInterval: 60000,
   })
 
-  // Add notification sound effect when unread count increases from any sender
+  // Play notification sound when unread count increases from any sender/package
   useEffect(() => {
     if (senders && wavePackages) {
       const currentSmsUnread = senders.reduce((acc, s) => acc + s.unread_count, 0)
       const currentWaveUnread = wavePackages.reduce((acc, p) => acc + p.unread_count, 0)
       const totalUnread = currentSmsUnread + currentWaveUnread
 
-      if (prevUnreadCountRef.current !== -1 && totalUnread > prevUnreadCountRef.current) {
-        // Notification for a new message from anywhere
+      if (prevUnreadCountRef.current !== -1 && totalUnread > prevUnreadCountRef.current && soundEnabled) {
         playNotificationSound()
       }
       
       prevUnreadCountRef.current = totalUnread
     }
-  }, [senders, wavePackages])
+  }, [senders, wavePackages, soundEnabled])
 
   // Derived state for pinned senders from API data
   const pinnedSenders = new Set<string>(pinnedSendersData?.pinned_senders?.map((p: PinnedSender) => p.sender) || [])
@@ -516,6 +529,8 @@ export default function DashboardPage() {
           isRefreshing={isRefreshing}
           onLogout={logout}
           onMenuClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          soundEnabled={soundEnabled}
+          onToggleSound={handleToggleSound}
         />
 
         <div className="flex flex-1 overflow-hidden">
