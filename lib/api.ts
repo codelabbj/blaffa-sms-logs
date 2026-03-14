@@ -163,9 +163,11 @@ export interface PinSenderResponse {
 
 export interface UniqueSender {
   sender: string
+  original_sender: string
   count: number
   pending_count: number
   unread_count: number
+  latest_message_at?: string
 }
 
 export async function fetchSmsLogs(params: {
@@ -219,12 +221,23 @@ export async function fetchUniqueSenders(): Promise<UniqueSender[]> {
   const data: UniqueSendersResponse = await response.json()
 
   // Transform the API response to match our component expectations
-  return data.stats.map(stat => ({
-    sender: stat.sender,
-    count: stat.count,
-    pending_count: stat.pending_count,
-    unread_count: stat.unread_count
-  }))
+  return data.stats.map(stat => {
+    const displayNames: Record<string, string> = {
+      "com.orange.bf.om_merchant": "Orange bf",
+      "com.wave.business": "Wave Business",
+      "com.wave.personal": "Wave Personal",
+      "mtnft.momo.groupbiz": "MTN MoMo",
+    };
+    
+    return {
+      sender: displayNames[stat.sender] || stat.sender,
+      original_sender: stat.sender,
+      count: stat.count,
+      pending_count: stat.pending_count,
+      unread_count: stat.unread_count,
+      latest_message_at: (stat as any).latest_message_at || new Date(0).toISOString()
+    };
+  })
 }
 
 export async function updateSmsStatus(smsLogUid: string, status: "approved" | "no_order" | "refunded"): Promise<SmsLog> {

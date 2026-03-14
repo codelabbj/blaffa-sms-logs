@@ -48,9 +48,11 @@ export interface UniquePackagesResponse {
 
 export interface UniquePackage {
   package_name: string
+  original_package_name: string
   count: number
   pending_count: number
   unread_count: number
+  latest_message_at?: string
 }
 
 export async function fetchFcmLogs(params: {
@@ -99,15 +101,25 @@ export async function fetchUniquePackages(): Promise<UniquePackage[]> {
   const data: UniquePackagesResponse = await response.json()
 
   // Transform the API response to match our component expectations
-  // Only show com.wave.business if count is not 0
   return data.stats
-    .filter(stat => stat.package_name === "com.wave.business" && stat.count > 0)
-    .map(stat => ({
-      package_name: "Wave", // Display name as "Wave"
-      count: stat.count,
-      pending_count: stat.pending_count, // Use actual pending count from API
-      unread_count: stat.unread_count
-    }))
+    .filter(stat => stat.count > 0)
+    .map(stat => {
+      const displayNames: Record<string, string> = {
+        "com.orange.bf.om_merchant": "Orange bf",
+        "com.wave.business": "Wave Business",
+        "com.wave.personal": "Wave Personal",
+        "mtnft.momo.groupbiz": "MTN MoMo",
+      };
+      
+      return {
+        package_name: displayNames[stat.package_name] || stat.package_name,
+        original_package_name: stat.package_name,
+        count: stat.count,
+        pending_count: stat.pending_count,
+        unread_count: stat.unread_count,
+        latest_message_at: (stat as any).latest_message_at || new Date(0).toISOString()
+      };
+    })
 }
 
 export async function updateFcmStatus(fcmLogUid: string, status: "approved" | "no_order" | "refunded"): Promise<FcmLog> {

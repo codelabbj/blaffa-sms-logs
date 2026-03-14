@@ -42,6 +42,8 @@ interface MessageThreadProps {
   onMarkAsRead?: (uids: string[]) => void
   restoreScrollTop?: number
   onScrollPositionChange?: (scrollTop: number) => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
 }
 
 export function MessageThread({
@@ -59,6 +61,8 @@ export function MessageThread({
   onMarkAsRead,
   restoreScrollTop = 0,
   onScrollPositionChange,
+  onRefresh,
+  isRefreshing = false,
 }: MessageThreadProps) {
   const [copiedUid, setCopiedUid] = useState<string | null>(null)
   const { toast } = useToast()
@@ -67,6 +71,37 @@ export function MessageThread({
   const isLoadingInternalRef = useRef<boolean>(false)
   const lastRestoredRef = useRef<number | null>(null)
   const suppressLoadMoreRef = useRef<boolean>(false)
+
+  const [pullProgress, setPullProgress] = useState(0)
+  const touchStartY = useRef<number | null>(null)
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop <= 0) {
+      touchStartY.current = e.touches[0].clientY
+    } else {
+      touchStartY.current = null
+    }
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (touchStartY.current !== null && scrollContainerRef.current && scrollContainerRef.current.scrollTop <= 0) {
+      const touchY = e.touches[0].clientY
+      const diff = touchY - touchStartY.current
+      if (diff > 0) {
+        setPullProgress(Math.min(diff, 100))
+      } else {
+        setPullProgress(0)
+      }
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (pullProgress > 60 && onRefresh && !isRefreshing) {
+      onRefresh()
+    }
+    setPullProgress(0)
+    touchStartY.current = null
+  }
 
   const [expandedMessages, setExpandedMessages] = useState<Set<string>>(() => {
     if (typeof window !== "undefined") {
@@ -235,11 +270,33 @@ export function MessageThread({
       </div>
 
       {/* Message list */}
-      <div
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto bg-muted/20"
-      >
+      <div className="relative flex-1 overflow-hidden flex flex-col">
+        {/* Pull-to-refresh Indicator */}
+        <div 
+          className={cn(
+            "absolute top-0 left-0 right-0 z-10 flex justify-center items-center transition-all duration-200 pointer-events-none",
+            (pullProgress > 0 || isRefreshing) ? "opacity-100" : "opacity-0"
+          )}
+          style={{
+            transform: `translateY(${Math.min(pullProgress, 50) - 50 + (isRefreshing ? 50 : 0)}px)`
+          }}
+        >
+          <div className="bg-white rounded-full shadow-md p-2 mt-4 flex items-center justify-center">
+            <Loader2 
+              className={cn("h-5 w-5 text-primary", isRefreshing ? "animate-spin" : "")} 
+              style={!isRefreshing ? { transform: `rotate(${pullProgress * 3}deg)` } : {}} 
+            />
+          </div>
+        </div>
+
+        <div
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="flex-1 overflow-y-auto bg-muted/20 overscroll-y-contain"
+        >
         <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
           {messages.map((message) => {
             const config = statusConfig[message.status] ?? statusConfig.pending
@@ -383,7 +440,7 @@ export function MessageThread({
           )}
         </div>
       </div>
-
+    </div>
     </div>
   )
 }

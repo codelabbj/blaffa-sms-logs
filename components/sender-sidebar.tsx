@@ -88,13 +88,19 @@ export function SenderSidebar({
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                 </div>
               ) : (
-                wavePackages.map((pkg) => (
-                  <button
-                    key={`wave-${pkg.package_name}`}
-                    onClick={() => onSelectSender("com.wave.business", true)}
+                [...wavePackages]
+                  .sort((a, b) => {
+                    const timeA = new Date(a.latest_message_at || 0).getTime()
+                    const timeB = new Date(b.latest_message_at || 0).getTime()
+                    return timeB - timeA
+                  })
+                  .map((pkg) => (
+                    <button
+                    key={`wave-${pkg.original_package_name}`}
+                    onClick={() => onSelectSender(pkg.original_package_name, true)}
                     className={cn(
                       "w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-left transition-colors text-sm",
-                      selectedSender === "com.wave.business"
+                      selectedSender === pkg.original_package_name
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-muted text-foreground"
                     )}
@@ -102,26 +108,26 @@ export function SenderSidebar({
                     <Avatar className="h-7 w-7 flex-shrink-0">
                       <AvatarFallback className={cn(
                         "text-xs font-semibold",
-                        selectedSender === "com.wave.business"
+                        selectedSender === pkg.original_package_name
                           ? "bg-white/20 text-primary-foreground"
                           : "bg-emerald-100 text-emerald-700"
                       )}>
-                        W
+                        {pkg.package_name.charAt(0)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium truncate">{pkg.package_name}</p>
                       <p className={cn(
                         "text-xs",
-                        selectedSender === "com.wave.business" ? "text-primary-foreground/70" : "text-muted-foreground"
+                        selectedSender === pkg.original_package_name ? "text-primary-foreground/70" : "text-muted-foreground"
                       )}>
                         {pkg.count} message{pkg.count !== 1 ? "s" : ""}
                       </p>
                     </div>
                     {pkg.unread_count > 0 && (
-                      <Badge className={cn(
+                       <Badge className={cn(
                         "text-[10px] px-1.5 py-0 h-4 font-semibold",
-                        selectedSender === "com.wave.business" ? "bg-white text-primary" : "bg-primary text-primary-foreground"
+                        selectedSender === pkg.original_package_name ? "bg-white text-primary" : "bg-primary text-primary-foreground"
                       )}>
                         {pkg.unread_count}
                       </Badge>
@@ -137,24 +143,27 @@ export function SenderSidebar({
             <p className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
               SMS
             </p>
-            {senders
+            {[...senders]
               .sort((a, b) => {
-                const aPinned = pinnedSenders.has(a.sender)
-                const bPinned = pinnedSenders.has(b.sender)
+                const aPinned = pinnedSenders.has(a.original_sender)
+                const bPinned = pinnedSenders.has(b.original_sender)
                 if (aPinned && !bPinned) return -1
                 if (!aPinned && bPinned) return 1
-                return 0
+                
+                const timeA = new Date(a.latest_message_at || 0).getTime()
+                const timeB = new Date(b.latest_message_at || 0).getTime()
+                return timeB - timeA
               })
               .map((sender) => {
-                const isPinned = pinnedSenders.has(sender.sender)
-                const isSelected = selectedSender === sender.sender
+                const isPinned = pinnedSenders.has(sender.original_sender)
+                const isSelected = selectedSender === sender.original_sender
                 return (
-                  <div key={sender.sender} className={cn(
+                  <div key={sender.original_sender} className={cn(
                     "group relative flex items-center gap-3 px-3 py-2.5 rounded-md transition-colors",
                     isSelected ? "bg-primary text-primary-foreground" : "hover:bg-muted"
                   )}>
                     <button
-                      onClick={() => onSelectSender(sender.sender, false)}
+                      onClick={() => onSelectSender(sender.original_sender, false)}
                       className="flex-1 flex items-center gap-3 text-left min-w-0"
                     >
                       <div className="relative flex-shrink-0">
@@ -200,8 +209,8 @@ export function SenderSidebar({
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (isPinned) onUnpinSender(sender.sender)
-                          else onPinSender(sender.sender)
+                          if (isPinned) onUnpinSender(sender.original_sender)
+                          else onPinSender(sender.original_sender)
                         }}
                         disabled={isPinning}
                         title={isPinned ? "Désépingler" : "Épingler"}

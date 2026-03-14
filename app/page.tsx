@@ -35,6 +35,7 @@ import { useState, useCallback, useEffect, useRef } from "react"
 import useSWR from "swr"
 import { useMessagesV2 } from "@/hooks/use-messages-v2"
 import { useConversationStore } from "@/hooks/use-conversation-store"
+import { playNotificationSound } from "@/lib/sound"
 
 import { useToast } from "@/hooks/use-toast"
 
@@ -56,6 +57,7 @@ export default function DashboardPage() {
   const [useCacheOnly, setUseCacheOnly] = useState(false)
   const [restoreScrollTop, setRestoreScrollTop] = useState(0)
   const currentScrollTopRef = useRef(0)
+  const prevUnreadCountRef = useRef(-1)
 
   // Hook V2 - Architecture stable pour gérer les messages
   const {
@@ -71,6 +73,7 @@ export default function DashboardPage() {
   } = useMessagesV2({
     onNewMessages: (newMessages) => {
       console.log(`✨ ${newMessages.length} nouveau(x) message(s) détecté(s)`)
+      playNotificationSound()
     },
   })
 
@@ -114,6 +117,22 @@ export default function DashboardPage() {
   } = useSWR<PinnedSendersResponse>("pinned-senders", fetchPinnedSenders, {
     refreshInterval: 60000,
   })
+
+  // Add notification sound effect when unread count increases from any sender
+  useEffect(() => {
+    if (senders && wavePackages) {
+      const currentSmsUnread = senders.reduce((acc, s) => acc + s.unread_count, 0)
+      const currentWaveUnread = wavePackages.reduce((acc, p) => acc + p.unread_count, 0)
+      const totalUnread = currentSmsUnread + currentWaveUnread
+
+      if (prevUnreadCountRef.current !== -1 && totalUnread > prevUnreadCountRef.current) {
+        // Notification for a new message from anywhere
+        playNotificationSound()
+      }
+      
+      prevUnreadCountRef.current = totalUnread
+    }
+  }, [senders, wavePackages])
 
   // Derived state for pinned senders from API data
   const pinnedSenders = new Set<string>(pinnedSendersData?.pinned_senders?.map((p: PinnedSender) => p.sender) || [])
@@ -565,6 +584,8 @@ export default function DashboardPage() {
                 onScrollPositionChange={(pos) => {
                   currentScrollTopRef.current = pos
                 }}
+                onRefresh={handleRefresh}
+                isRefreshing={isRefreshing}
               />
             </div>
           </div>
